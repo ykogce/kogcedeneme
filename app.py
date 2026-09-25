@@ -1,4 +1,5 @@
 import io
+import time
 import requests
 import streamlit as st
 
@@ -14,7 +15,6 @@ APP_PASSWORD = "1234"
 
 PROMPT_MODEL = "openai/gpt-oss-120b"
 IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
-
 VIDEO_T2V_MODEL = "Wan-AI/Wan2.1-T2V-1.3B"
 VIDEO_I2V_MODEL = "Lightricks/LTX-Video-0.9.8-13B-distilled"
 
@@ -326,6 +326,7 @@ def generate_image(prompt, width, height):
 
 # ============================================================
 # TEXT TO VIDEO
+# ONLY THIS FUNCTION WAS CHANGED
 # ============================================================
 
 def generate_text_video(
@@ -339,65 +340,293 @@ def generate_text_video(
 
     try:
 
-        # --------------------------------------------------------
-        # IMPORTANT:
-        # fal-ai Wan 2.1 T2V currently requires 81-100 frames.
-        # The UI can still show "Kısa = 49", but we internally
-        # normalize it to the provider's valid range.
-        # --------------------------------------------------------
-
-        num_frames = max(81, min(int(num_frames), 100))
-
-        steps = max(1, min(int(steps), 50))
-
-        client = InferenceClient(
-            provider="fal-ai",
-            api_key=HF_API_KEY,
+        # Wan 2.1 requires 81-100 frames.
+        num_frames = max(
+            81,
+            min(int(num_frames), 100)
         )
 
-        video = client.text_to_video(
-            prompt=prompt,
-            model=VIDEO_T2V_MODEL,
-            num_frames=num_frames,
-            num_inference_steps=steps,
+        steps = max(
+            1,
+            min(int(steps), 50)
         )
 
-        if video is None:
+        # Hugging Face's Fal mapping for Wan T2V.
+        # We use the queue endpoint directly instead of
+        # letting InferenceClient parse the final response.
+        endpoint = (
+            "https://router.huggingface.co/"
+            "fal-ai/fal-ai/wan-t2v"
+            "?_subdomain=queue"
+        )
+
+        headers = {
+            "Authorization": f"Bearer {HF_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "prompt": prompt,
+            "num_frames": num_frames,
+            "num_inference_steps": steps,
+        }
+
+        response = requests.post(
+            endpoint,
+            headers=headers,
+            json=payload,
+            timeout=180,
+        )
+
+        if response.status_code not in (200, 201, 202):
+
+            try:
+                provider_error = response.json()
+            except Exception:
+                provider_error = response.text
+
             return (
                 None,
-                "Provider video döndürmedi. "
-                "Boş video cevabı alındı.",
+                "Fal / Hugging Face video isteği başarısız.\n\n"
+                f"HTTP {response.status_code}\n\n"
+                f"{provider_error}",
             )
 
-        if isinstance(video, bytes):
-            return video, None
+        try:
+            queue_data = response.json()
+        except Exception:
+            return (
+                None,
+                "Provider geçerli JSON cevap döndürmedi.\n\n"
+                f"HTTP {response.status_code}\n\n"
+                f"{response.text[:4000]}",
+            )
 
-        if isinstance(video, bytearray):
-            return bytes(video), None
+        request_id = queue_data.get("request_id")
+        response_url = queue_data.get("response_url")
 
-        if hasattr(video, "read"):
-            data = video.read()
+        if not request_id:
+            return (
+                None,
+                "Provider request_id döndürmedi.\n\n"
+                f"Provider cevabı:\n{queue_data}",
+            )
 
-            if data:
-                return data, None
+        if not response_url:
+            return (
+                None,
+                "Provider response_url döndürmedi.\n\n"
+                f"Provider cevabı:\n{queue_data}",
+            )
 
-        return (
-            None,
-            "Beklenmeyen video cevap tipi.\n\n"
-            f"Cevap tipi: {type(video).__name__}\n"
-            f"Cevap: {repr(video)}",
+        # --------------------------------------------------------
+        # Build status/result URLs from provider response.
+        # This follows the Hugging Face Fal queue flow.
+        # --------------------------------------------------------
+
+        from urllib.parse import urlparse
+
+        parsed = urlparse(response_url)
+
+        model_path = parsed.path
+
+        status_url = (
+            "https://router.huggingface.co"
+            "/fal-ai"
+            f"{model_path}"
+            "/status"
+            "?_subdomain=queue"
         )
 
-    except KeyError as e:
+        result_url = (
+            "https://router.huggingface.co"
+            "/fal-ai"
+            f"{model_path}"
+            "?_subdomain=queue"
+        )
+
+        # --------------------------------------------------------
+        # Poll until Fal finishes.
+        # --------------------------------------------------------
+
+        max_wait_seconds = 600
+        poll_interval = 1.0
+
+        start_time = time.time()
+
+        while True:
+
+            elapsed = time.time() - start_time
+
+            if elapsed > max_wait_seconds:
+                return (
+                    None,
+                    "Video üretimi zaman aşımına uğradı.\n\n"
+                    f"Beklenen süre: {max_wait_seconds} saniye\n"
+                    f"Request ID: {request_id}",
+                )
+
+            status_response = requests.get(
+                status_url,
+                headers={
+                    "Authorization": f"Bearer {HF_API_KEY}",
+                },
+                timeout=60,
+            )
+
+            if status_response.status_code != 200:
+
+                try:
+                    status_error = status_response.json()
+                except Exception:
+                    status_error = status_response.text
+
+                return (
+                    None,
+                    "Fal durum sorgusu başarısız.\n\n"
+                    f"HTTP {status_response.status_code}\n\n"
+                    f"{status_error}",
+                )
+
+            try:
+                status_data = status_response.json()
+            except Exception:
+                return (
+                    None,
+                    "Fal durum cevabı JSON değil.\n\n"
+                    f"{status_response.text[:4000]}",
+                )
+
+            status = status_data.get("status")
+
+            if status == "COMPLETED":
+                break
+
+            if status in (
+                "FAILED",
+                "ERROR",
+                "CANCELLED",
+            ):
+
+                return (
+                    None,
+                    "Fal video üretimini tamamlayamadı.\n\n"
+                    f"Durum: {status}\n\n"
+                    f"Provider cevabı:\n{status_data}",
+                )
+
+            time.sleep(poll_interval)
+
+        # --------------------------------------------------------
+        # Get completed result.
+        # --------------------------------------------------------
+
+        result_response = requests.get(
+            result_url,
+            headers={
+                "Authorization": f"Bearer {HF_API_KEY}",
+            },
+            timeout=120,
+        )
+
+        if result_response.status_code != 200:
+
+            try:
+                result_error = result_response.json()
+            except Exception:
+                result_error = result_response.text
+
+            return (
+                None,
+                "Fal sonuç isteği başarısız.\n\n"
+                f"HTTP {result_response.status_code}\n\n"
+                f"{result_error}",
+            )
+
+        try:
+            result_data = result_response.json()
+        except Exception:
+            return (
+                None,
+                "Fal sonuç cevabı JSON değil.\n\n"
+                f"{result_response.text[:4000]}",
+            )
+
+        # --------------------------------------------------------
+        # The expected structure is:
+        #
+        # {
+        #   "video": {
+        #       "url": "..."
+        #   }
+        # }
+        #
+        # --------------------------------------------------------
+
+        video_info = result_data.get("video")
+
+        if not video_info:
+
+            return (
+                None,
+                "Video üretimi tamamlandı ancak provider "
+                "video alanını döndürmedi.\n\n"
+                f"Provider sonucu:\n{result_data}",
+            )
+
+        video_url = video_info.get("url")
+
+        if not video_url:
+
+            return (
+                None,
+                "Provider video alanını döndürdü fakat "
+                "video URL'si bulunamadı.\n\n"
+                f"Video alanı:\n{video_info}",
+            )
+
+        # --------------------------------------------------------
+        # Download MP4.
+        # --------------------------------------------------------
+
+        video_response = requests.get(
+            video_url,
+            timeout=180,
+        )
+
+        if video_response.status_code != 200:
+
+            return (
+                None,
+                "Üretilen video dosyası indirilemedi.\n\n"
+                f"HTTP {video_response.status_code}\n"
+                f"URL: {video_url}",
+            )
+
+        video_bytes = video_response.content
+
+        if not video_bytes:
+
+            return (
+                None,
+                "Provider video URL'si verdi fakat "
+                "dosya boş geldi.",
+            )
+
+        return video_bytes, None
+
+    except requests.exceptions.Timeout:
 
         return (
             None,
-            "Hugging Face / Fal AI provider beklenen video alanını "
-            "döndürmedi.\n\n"
-            f"KeyError: {e}\n\n"
-            f"Model: {VIDEO_T2V_MODEL}\n"
-            f"Frame: {num_frames}\n"
-            f"Steps: {steps}",
+            "Video provider bağlantısı zaman aşımına uğradı.",
+        )
+
+    except requests.exceptions.RequestException as e:
+
+        return (
+            None,
+            f"Provider bağlantı hatası:\n{type(e).__name__}: {e}",
         )
 
     except Exception as e:
@@ -652,7 +881,9 @@ with tabs[0]:
                         enhanced_prompt
                     )
 
-                    with st.expander("AI tarafından geliştirilen prompt"):
+                    with st.expander(
+                        "AI tarafından geliştirilen prompt"
+                    ):
 
                         st.write(enhanced_prompt)
 
@@ -753,10 +984,6 @@ with tabs[1]:
             ],
         )
 
-        # UI seçenekleri korunuyor.
-        # Provider tarafında 49 frame geçerli olmadığı için
-        # generate_text_video() bunu minimum 81'e normalize ediyor.
-
         if duration == "Kısa":
             num_frames = 49
         else:
@@ -812,6 +1039,7 @@ with tabs[1]:
                 elif video:
 
                     st.session_state.generated_video = video
+
                     st.session_state.video_filename = (
                         "kogce_text_to_video.mp4"
                     )
@@ -903,6 +1131,7 @@ with tabs[1]:
                 elif video:
 
                     st.session_state.generated_video = video
+
                     st.session_state.video_filename = (
                         "kogce_image_to_video.mp4"
                     )
@@ -994,8 +1223,11 @@ with tabs[2]:
                     )
 
                 if error:
+
                     st.error(error)
+
                 else:
+
                     st.text_area(
                         "Generated Prompt",
                         value=result,
