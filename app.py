@@ -18,14 +18,19 @@ st.set_page_config(
 
 
 # =========================================================
-# CSS
+# TEMA
 # =========================================================
 
 st.markdown(
     """
     <style>
     .stApp {
-        background: linear-gradient(135deg, #09090f 0%, #11101c 50%, #0b0912 100%);
+        background: linear-gradient(
+            135deg,
+            #09090f 0%,
+            #11101c 50%,
+            #0b0912 100%
+        );
     }
 
     .main {
@@ -130,7 +135,7 @@ for key, value in defaults.items():
 
 
 # =========================================================
-# HUGGING FACE KEY
+# HUGGING FACE API KEY
 # =========================================================
 
 def get_hf_key():
@@ -187,7 +192,7 @@ def call_ai(
 
         if response.status_code != 200:
             return None, (
-                f"HTTP {response.status_code}\n"
+                f"HTTP {response.status_code}\n\n"
                 f"{response.text}"
             )
 
@@ -196,17 +201,27 @@ def call_ai(
         choices = data.get("choices", [])
 
         if not choices:
-            return None, f"Model cevap vermedi.\n{data}"
+            return None, (
+                "Model cevap vermedi.\n\n"
+                f"{data}"
+            )
 
-        content = choices[0].get("message", {}).get("content")
+        message = choices[0].get("message", {})
+
+        content = message.get("content")
 
         if not content:
-            return None, f"Boş AI cevabı.\n{data}"
+            return None, (
+                "Model boş cevap döndürdü.\n\n"
+                f"{data}"
+            )
 
         return content.strip(), None
 
     except Exception as e:
-        return None, f"{type(e).__name__}: {str(e)}"
+        return None, (
+            f"{type(e).__name__}: {str(e)}"
+        )
 
 
 # =========================================================
@@ -214,6 +229,7 @@ def call_ai(
 # =========================================================
 
 def enhance_image_prompt(user_prompt):
+
     system_prompt = """
 You are a professional AI image prompt engineer.
 
@@ -249,11 +265,16 @@ Return only the final English image prompt.
 # IMAGE GENERATION
 # =========================================================
 
-def generate_image(prompt, width, height):
+def generate_image(
+    prompt,
+    width,
+    height,
+):
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
 
     try:
+
         client = InferenceClient(
             provider="auto",
             api_key=HF_API_KEY,
@@ -269,7 +290,10 @@ def generate_image(prompt, width, height):
         return image, None
 
     except Exception as e:
-        return None, f"{type(e).__name__}: {str(e)}"
+
+        return None, (
+            f"{type(e).__name__}: {str(e)}"
+        )
 
 
 # =========================================================
@@ -285,6 +309,7 @@ def generate_text_video(
         return None, "HF_API_KEY bulunamadı."
 
     try:
+
         client = InferenceClient(
             provider="fal-ai",
             api_key=HF_API_KEY,
@@ -297,10 +322,20 @@ def generate_text_video(
             num_inference_steps=steps,
         )
 
+        if video is None:
+            return None, (
+                "Provider boş video döndürdü."
+            )
+
         return video, None
 
     except Exception as e:
-        return None, f"{type(e).__name__}: {str(e)}"
+
+        error_text = (
+            f"{type(e).__name__}: {str(e)}"
+        )
+
+        return None, error_text
 
 
 # =========================================================
@@ -315,6 +350,7 @@ def generate_image_video(
         return None, "HF_API_KEY bulunamadı."
 
     try:
+
         client = InferenceClient(
             provider="auto",
             api_key=HF_API_KEY,
@@ -326,10 +362,18 @@ def generate_image_video(
             model=VIDEO_I2V_MODEL,
         )
 
+        if video is None:
+            return None, (
+                "Provider boş video döndürdü."
+            )
+
         return video, None
 
     except Exception as e:
-        return None, f"{type(e).__name__}: {str(e)}"
+
+        return None, (
+            f"{type(e).__name__}: {str(e)}"
+        )
 
 
 # =========================================================
@@ -343,15 +387,21 @@ if not st.session_state.authenticated:
         unsafe_allow_html=True,
     )
 
-    col1, col2, col3 = st.columns([1, 2, 1])
+    col1, col2, col3 = st.columns(
+        [1, 2, 1]
+    )
 
     with col2:
 
         st.title("KOGCE AI Studio")
 
-        st.caption("AI CREATIVE WORKSPACE")
+        st.caption(
+            "AI CREATIVE WORKSPACE"
+        )
 
-        st.write("Create. Imagine. Generate.")
+        st.write(
+            "Create. Imagine. Generate."
+        )
 
         st.write("")
 
@@ -367,11 +417,16 @@ if not st.session_state.authenticated:
         ):
 
             if password == APP_PASSWORD:
+
                 st.session_state.authenticated = True
+
                 st.rerun()
 
             else:
-                st.error("Şifre yanlış.")
+
+                st.error(
+                    "Şifre yanlış."
+                )
 
     st.stop()
 
@@ -382,27 +437,57 @@ if not st.session_state.authenticated:
 
 with st.sidebar:
 
-    st.title("KOGCE AI Studio")
+    st.title(
+        "KOGCE AI Studio"
+    )
 
     if HF_API_KEY:
-        st.success("AI System Online")
+
+        st.success(
+            "AI System Online"
+        )
+
     else:
-        st.error("HF API Key bulunamadı")
+
+        st.error(
+            "HF API Key bulunamadı"
+        )
 
     st.divider()
 
-    st.markdown("### AI Motorları")
+    st.markdown(
+        "### AI Motorları"
+    )
 
-    st.write("Prompt AI")
-    st.write("Scenario Writer")
-    st.write("Scene Planner")
-    st.write("Video Prompt AI")
+    st.write(
+        "Prompt AI"
+    )
+
+    st.write(
+        "Scenario Writer"
+    )
+
+    st.write(
+        "Scene Planner"
+    )
+
+    st.write(
+        "Video Prompt AI"
+    )
 
     st.divider()
 
-    st.write("FLUX.1-schnell")
-    st.write("Wan2.1 T2V")
-    st.write("LTX Video I2V")
+    st.write(
+        "FLUX.1-schnell"
+    )
+
+    st.write(
+        "Wan2.1 T2V"
+    )
+
+    st.write(
+        "LTX Video I2V"
+    )
 
     st.divider()
 
@@ -414,7 +499,9 @@ with st.sidebar:
         "Çıkış Yap",
         use_container_width=True,
     ):
+
         st.session_state.authenticated = False
+
         st.rerun()
 
 
@@ -439,12 +526,17 @@ tabs = st.tabs(
 
 with tabs[0]:
 
-    st.header("AI Görsel Üretici")
+    st.header(
+        "AI Görsel Üretici"
+    )
 
     prompt = st.text_area(
         "Prompt",
         height=150,
-        placeholder="Örneğin: A futuristic city with a giant orange cat...",
+        placeholder=(
+            "Örneğin: A futuristic city "
+            "with a giant orange cat..."
+        ),
         key="image_prompt",
     )
 
@@ -480,7 +572,10 @@ with tabs[0]:
     ):
 
         if not prompt.strip():
-            st.warning("Önce bir prompt gir.")
+
+            st.warning(
+                "Önce bir prompt gir."
+            )
 
         else:
 
@@ -492,20 +587,25 @@ with tabs[0]:
                     "AI prompt'u geliştiriyor..."
                 ):
 
-                    enhanced, error = enhance_image_prompt(
-                        prompt
+                    enhanced, error = (
+                        enhance_image_prompt(
+                            prompt
+                        )
                     )
 
                 if error:
+
                     st.error(
                         "AI Prompt Robotu çalışmadı."
                     )
+
                     st.code(
                         error,
                         language="text",
                     )
 
                 else:
+
                     final_prompt = enhanced
 
                     st.session_state.last_enhanced_prompt = (
@@ -515,9 +615,14 @@ with tabs[0]:
                     with st.expander(
                         "Oluşturulan gelişmiş prompt"
                     ):
-                        st.write(enhanced)
 
-            st.session_state.last_prompt = prompt
+                        st.write(
+                            enhanced
+                        )
+
+            st.session_state.last_prompt = (
+                prompt
+            )
 
             with st.spinner(
                 "Görsel oluşturuluyor..."
@@ -557,7 +662,9 @@ with tabs[0]:
                 st.download_button(
                     "PNG indir",
                     data=buffer.getvalue(),
-                    file_name="kogce_ai_image.png",
+                    file_name=(
+                        "kogce_ai_image.png"
+                    ),
                     mime="image/png",
                     use_container_width=True,
                 )
@@ -581,7 +688,9 @@ with tabs[0]:
 
 with tabs[1]:
 
-    st.header("AI Video Generator")
+    st.header(
+        "AI Video Generator"
+    )
 
     video_mode = st.radio(
         "Video Türü",
@@ -592,20 +701,23 @@ with tabs[1]:
         horizontal=True,
     )
 
-    # -----------------------------------------------------
-    # TEXT TO VIDEO
-    # -----------------------------------------------------
+    # =====================================================
+    # TEXT → VIDEO
+    # =====================================================
 
     if video_mode == "Text → Video":
 
-        st.subheader("Text → Video")
+        st.subheader(
+            "Text → Video"
+        )
 
         video_prompt = st.text_area(
             "Video Prompt",
             height=160,
             placeholder=(
-                "A cute orange cat running through a futuristic "
-                "neon city, cinematic camera movement..."
+                "A cute orange cat running "
+                "through a futuristic neon city, "
+                "cinematic camera movement..."
             ),
             key="t2v_prompt",
         )
@@ -619,8 +731,11 @@ with tabs[1]:
         )
 
         if duration == "Kısa":
+
             num_frames = 49
+
         else:
+
             num_frames = 81
 
         steps = st.slider(
@@ -652,10 +767,12 @@ with tabs[1]:
                     "Video oluşturuluyor..."
                 ):
 
-                    video, error = generate_text_video(
-                        video_prompt,
-                        num_frames=num_frames,
-                        steps=steps,
+                    video, error = (
+                        generate_text_video(
+                            video_prompt,
+                            num_frames=num_frames,
+                            steps=steps,
+                        )
                     )
 
                 if error:
@@ -675,7 +792,10 @@ with tabs[1]:
 
                 else:
 
-                    st.session_state.generated_video = video
+                    st.session_state.generated_video = (
+                        video
+                    )
+
                     st.session_state.video_filename = (
                         "kogce_text_to_video.mp4"
                     )
@@ -698,13 +818,15 @@ with tabs[1]:
                         use_container_width=True,
                     )
 
-    # -----------------------------------------------------
-    # IMAGE TO VIDEO
-    # -----------------------------------------------------
+    # =====================================================
+    # IMAGE → VIDEO
+    # =====================================================
 
     else:
 
-        st.subheader("Image → Video")
+        st.subheader(
+            "Image → Video"
+        )
 
         uploaded = st.file_uploader(
             "Başlangıç görseli yükle",
@@ -720,8 +842,8 @@ with tabs[1]:
             "Hareket Prompt'u",
             height=150,
             placeholder=(
-                "The character slowly walks forward, "
-                "camera smoothly follows..."
+                "The character slowly walks "
+                "forward, camera smoothly follows..."
             ),
         )
 
@@ -815,7 +937,9 @@ with tabs[1]:
 
 with tabs[2]:
 
-    st.header("AI Araçları")
+    st.header(
+        "AI Araçları"
+    )
 
     tool = st.selectbox(
         "Araç Seç",
@@ -828,9 +952,9 @@ with tabs[2]:
         ],
     )
 
-    # -----------------------------------------------------
+    # =====================================================
     # PROMPT ROBOT
-    # -----------------------------------------------------
+    # =====================================================
 
     if tool == "AI Prompt Robotu":
 
@@ -842,8 +966,8 @@ with tabs[2]:
             "Fikrini yaz",
             height=160,
             placeholder=(
-                "Örneğin: Tom bir sihirli iksir içiyor "
-                "ve görünüşü değişiyor."
+                "Örneğin: Tom bir sihirli iksir "
+                "içiyor ve görünüşü değişiyor."
             ),
         )
 
@@ -864,8 +988,10 @@ with tabs[2]:
                     "Profesyonel prompt hazırlanıyor..."
                 ):
 
-                    result, error = enhance_image_prompt(
-                        idea
+                    result, error = (
+                        enhance_image_prompt(
+                            idea
+                        )
                     )
 
                 if error:
@@ -891,10 +1017,9 @@ with tabs[2]:
                         result
                     )
 
-
-    # -----------------------------------------------------
+    # =====================================================
     # SENARYO
-    # -----------------------------------------------------
+    # =====================================================
 
     elif tool == "AI Senaryo Yazarı":
 
@@ -988,10 +1113,9 @@ Target duration:
                         height=400,
                     )
 
-
-    # -----------------------------------------------------
+    # =====================================================
     # SAHNE PLANNER
-    # -----------------------------------------------------
+    # =====================================================
 
     elif tool == "AI Sahne Planlayıcı":
 
@@ -1084,10 +1208,9 @@ SCRIPT:
                         height=600,
                     )
 
-
-    # -----------------------------------------------------
+    # =====================================================
     # VIDEO PROMPT
-    # -----------------------------------------------------
+    # =====================================================
 
     elif tool == "AI Video Prompt Üretici":
 
@@ -1166,10 +1289,9 @@ Return only the final prompt.
                         height=300,
                     )
 
-
-    # -----------------------------------------------------
+    # =====================================================
     # SHORTS IDEA ENGINE
-    # -----------------------------------------------------
+    # =====================================================
 
     elif tool == "AI Shorts Fikir Motoru":
 
@@ -1179,7 +1301,9 @@ Return only the final prompt.
 
         topic = st.text_input(
             "Konu",
-            placeholder="Gaming, animals, satisfying, AI..."
+            placeholder=(
+                "Gaming, animals, satisfying, AI..."
+            ),
         )
 
         count = st.slider(
@@ -1230,7 +1354,7 @@ Generate:
 """
 
                 with st.spinner(
-                    "Shorts fikirleri araştırılıyor..."
+                    "Shorts fikirleri hazırlanıyor..."
                 ):
 
                     result, error = call_ai(
@@ -1266,7 +1390,9 @@ Generate:
 
 with tabs[3]:
 
-    st.header("Galeri")
+    st.header(
+        "Galeri"
+    )
 
     gallery = st.session_state.gallery
 
@@ -1290,8 +1416,8 @@ with tabs[3]:
             )
 
             st.caption(
-                f"Orijinal Prompt: "
-                f"{item['original_prompt']}"
+                "Orijinal Prompt: "
+                + item["original_prompt"]
             )
 
             with st.expander(
@@ -1309,7 +1435,9 @@ with tabs[3]:
 
 with tabs[4]:
 
-    st.header("Sistem")
+    st.header(
+        "Sistem"
+    )
 
     col1, col2 = st.columns(2)
 
@@ -1362,23 +1490,32 @@ with tabs[4]:
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         st.metric(
             "Galeri",
-            len(st.session_state.gallery),
+            len(
+                st.session_state.gallery
+            ),
         )
 
     with col2:
+
         st.metric(
             "Video",
-            "Hazır"
-            if st.session_state.generated_video
-            else "Yok",
+            (
+                "Hazır"
+                if st.session_state.generated_video
+                else "Yok"
+            ),
         )
 
     with col3:
+
         st.metric(
             "HF API",
-            "Online"
-            if HF_API_KEY
-            else "Offline",
+            (
+                "Online"
+                if HF_API_KEY
+                else "Offline"
+            ),
         )
