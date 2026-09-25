@@ -12,14 +12,13 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# GÜNCEL VE ÇALIŞAN HUGGING FACE ROUTER ENDPOINT'LERİ
+# GÜNCEL VE AKTİF HUGGING FACE INFERENCE ROUTER ADRESİ
 IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
-VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/damo-vilab/text-to-video-ms-1.7m"
 
 # Sayfa Konfigürasyonu
 st.set_page_config(page_title="KOGCE AI Studio Pro", page_icon="✨", layout="wide")
 
-# ==================== DARK THEME & GLASSMORPHISM CSS ====================
+# ==================== DARK THEME & STYLES ====================
 custom_css = """
 <style>
     .stApp { background-color: #0b0f19; color: #f8fafc; }
@@ -98,7 +97,7 @@ if use_password and user_pass != "1234":
 st.markdown('<h1 class="main-title">✨ KOGCE AI CREATIVE STUDIO PRO</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sub-title">FLUX.1-schnell Görsel Motoru • Kesintisiz Üretim</p>', unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluştur", "🎥 Video Üret", "🖼️ Galeri"])
+tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluştur", "🎥 Video Bilgi", "🖼️ Galeri"])
 
 # ==================== TAB 1: GÖRSEL ====================
 with tab1:
@@ -131,7 +130,7 @@ with tab1:
                 st.info(f"✨ **Prompt:** {final_prompt}")
 
                 with st.spinner("🎨 FLUX.1 görsel çiziyor..."):
-                    # 400 hatasını önlemek için yalnızca sade inputs objesi gönderiyoruz
+                    # 400 hatasını engellemek için sade JSON yapısı kullanılıyor
                     payload = {"inputs": final_prompt}
                     try:
                         response = requests.post(IMAGE_MODEL_URL, headers=headers, json=payload, timeout=60)
@@ -150,52 +149,25 @@ with tab1:
                             )
                             st.session_state.history.append({"type": "image", "data": image, "prompt": final_prompt})
                         elif response.status_code == 503:
-                            st.error("⏳ Model sunucuda uyanıyor. Lütfen 15-20 saniye sonra tekrar deneyin.")
+                            st.error("⏳ Model sunucuda uyanıyor. Lütfen 15-20 saniye sonra tekrar 'Görseli Üret' butonuna basın.")
                         elif response.status_code == 401:
-                            st.error("🔑 API Key Hatası (401): Streamlit Secrets alanındaki HF_API_KEY değerini ve token geçerliliğini kontrol edin.")
+                            st.error("🔑 API Key Hatası (401): Secrets bölümündeki HF_API_KEY değerinizi ve token izinlerinizi kontrol edin.")
                         else:
-                            st.error(f"Sunucu Hata Kodu ({response.status_code}): {response.text}")
+                            st.error(f"Sunucu Yanıtı ({response.status_code}): {response.text}")
                     except Exception as e:
                         st.error(f"Bağlantı Hatası: {e}")
 
-# ==================== TAB 2: VİDEO ====================
+# ==================== TAB 2: VİDEO BİLGİLENDİRME ====================
 with tab2:
-    col_v_in, col_v_out = st.columns([1, 1], gap="large")
-    
-    with col_v_in:
-        st.markdown("### 🎬 Video Sahnesi")
-        vid_prompt = st.text_area("Video Tarifi:", placeholder="Örn: Okyanus üzerinde uçan martı...", value="", height=120)
-        btn_vid = st.button("🎬 VİDEO ÜRET", type="primary", use_container_width=True)
+    st.markdown("### 🎬 Video Üretim Durumu")
+    st.warning("⚠️ **Hugging Face Ücretsiz Serverless API Bilgilendirmesi:**")
+    st.markdown("""
+    Hugging Face, yüksek GPU gereksinimi nedeniyle **Text-to-Video** modellerini ücretsiz Serverless Endpoint API erişiminden kaldırmıştır (HTTP 410 Hatası bu nedenle alınmaktadır).
 
-    with col_v_out:
-        st.markdown("### 🎥 Video Çıktısı")
-        if btn_vid:
-            if not vid_prompt:
-                st.warning("Lütfen metin girin!")
-            else:
-                final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic", "16:9")
-                st.info(f"✨ **Prompt:** {final_vid_prompt}")
-
-                with st.spinner("🎬 Video işleniyor (İlk çalıştırmada model uyanırken 30-45 sn sürebilir)..."):
-                    payload = {"inputs": final_vid_prompt}
-                    try:
-                        response = requests.post(VIDEO_MODEL_URL, headers=headers, json=payload, timeout=90)
-                        if response.status_code == 200:
-                            video_bytes = response.content
-                            st.video(video_bytes)
-                            st.download_button(
-                                label="📥 Videoyu İndir (MP4)",
-                                data=video_bytes,
-                                file_name=f"video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4",
-                                mime="video/mp4",
-                                use_container_width=True
-                            )
-                        elif response.status_code == 503:
-                            st.error("⏳ Video modeli uyanıyor. Lütfen 30 saniye sonra tekrar deneyin.")
-                        else:
-                            st.error(f"Hata ({response.status_code}): {response.text}")
-                    except Exception as e:
-                        st.error(f"Bağlantı Hatası: {e}")
+    **Video Üretimi İçin Seçenekler:**
+    1. **FLUX.1 Görsel Motoru:** Üstteki 'Görsel Oluştur' sekmesini kesintisiz ve yüksek kalitede kullanabilirsiniz.
+    2. **Hugging Face ZeroGPU Spaces:** Video üretimi için Hugging Face üzerindeki **ZeroGPU Spaces** araçlarını doğrudan kullanabilirsiniz.
+    """)
 
 # ==================== TAB 3: GALERİ ====================
 with tab3:
