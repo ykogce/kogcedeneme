@@ -7,40 +7,22 @@ from huggingface_hub import InferenceClient
 
 
 # ============================================================
-# KOGCE AI STUDIO
-# ============================================================
-
-st.set_page_config(
-    page_title="KOGCE AI Studio",
-    page_icon="✦",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-
-# ============================================================
 # CONFIG
 # ============================================================
 
 APP_PASSWORD = "1234"
 
-# AI
 PROMPT_MODEL = "openai/gpt-oss-120b"
-
-# IMAGE
 IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 
-# TEXT -> VIDEO
 VIDEO_T2V_MODEL = "Wan-AI/Wan2.1-T2V-1.3B"
-
-# IMAGE -> VIDEO
 VIDEO_I2V_MODEL = "Lightricks/LTX-Video-0.9.8-13B-distilled"
 
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
 
 # ============================================================
-# SESSION STATE
+# SESSION
 # ============================================================
 
 defaults = {
@@ -60,7 +42,7 @@ for key, value in defaults.items():
 
 
 # ============================================================
-# HF API KEY
+# HUGGING FACE KEY
 # ============================================================
 
 def get_hf_key():
@@ -74,225 +56,176 @@ HF_API_KEY = get_hf_key()
 
 
 # ============================================================
-# UI STYLE
+# PAGE
+# ============================================================
+
+st.set_page_config(
+    page_title="KOGCE AI Studio",
+    page_icon="✨",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
+# ============================================================
+# STYLE
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    /* ========================================================
-       MAIN
-       ======================================================== */
-
     .stApp {
         background:
-            radial-gradient(
-                circle at 15% 10%,
-                rgba(124, 58, 237, 0.18),
-                transparent 30%
-            ),
-            radial-gradient(
-                circle at 85% 15%,
-                rgba(168, 85, 247, 0.13),
-                transparent 28%
-            ),
-            #08080d;
+            radial-gradient(circle at 10% 10%, rgba(126, 34, 206, 0.20), transparent 28%),
+            radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.16), transparent 30%),
+            radial-gradient(circle at 50% 100%, rgba(88, 28, 135, 0.18), transparent 35%),
+            #09090f;
+        color: #f1f5f9;
     }
 
     .block-container {
-        max-width: 1450px;
+        max-width: 1250px;
         padding-top: 2rem;
-        padding-bottom: 4rem;
+        padding-bottom: 3rem;
     }
 
-
-    /* ========================================================
-       SIDEBAR
-       ======================================================== */
-
     section[data-testid="stSidebar"] {
-        background: #0d0d14;
-        border-right: 1px solid rgba(168, 85, 247, 0.20);
+        background:
+            linear-gradient(
+                180deg,
+                #0e0b16 0%,
+                #100c19 50%,
+                #0b0911 100%
+            );
+        border-right: 1px solid rgba(168, 85, 247, 0.22);
     }
 
     section[data-testid="stSidebar"] * {
         color: #f1f5f9 !important;
     }
 
-    section[data-testid="stSidebar"] p {
-        font-weight: 600 !important;
+    h1, h2, h3, h4 {
+        color: #ffffff !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em;
     }
 
-
-    /* ========================================================
-       GENERAL TEXT
-       ======================================================== */
-
-    .stApp p,
-    .stApp label,
-    .stApp span {
+    p, label, span, div {
         color: #f1f5f9;
-    }
-
-    .stApp p {
-        font-weight: 550;
     }
 
     .stCaption,
     [data-testid="stCaptionContainer"] {
         color: #d9dce5 !important;
-        font-weight: 600 !important;
-    }
-
-    .stMarkdown {
-        color: #f1f5f9;
-    }
-
-    .stMarkdown p {
-        color: #f1f5f9;
-        font-weight: 550;
-    }
-
-
-    /* ========================================================
-       HEADINGS
-       ======================================================== */
-
-    h1 {
-        color: #ffffff !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.025em;
-    }
-
-    h2 {
-        color: #ffffff !important;
-        font-weight: 750 !important;
-    }
-
-    h3 {
-        color: #f8fafc !important;
-        font-weight: 700 !important;
-    }
-
-
-    /* ========================================================
-       INPUT LABELS
-       ======================================================== */
-
-    div[data-testid="stTextInput"] label,
-    div[data-testid="stTextArea"] label,
-    div[data-testid="stSelectbox"] label,
-    div[data-testid="stFileUploader"] label,
-    div[data-testid="stSlider"] label,
-    div[data-testid="stRadio"] label,
-    div[data-testid="stCheckbox"] label {
-        color: #f1f5f9 !important;
-        font-weight: 700 !important;
-    }
-
-
-    /* ========================================================
-       TEXT AREA
-       ======================================================== */
-
-    div[data-testid="stTextArea"] textarea {
-        background: #ffffff !important;
-        color: #111111 !important;
-        border-radius: 14px !important;
-        border: 1px solid #d0d0d0 !important;
         font-weight: 500 !important;
     }
 
-    div[data-testid="stTextArea"] textarea::placeholder {
-        color: #666666 !important;
-        opacity: 1 !important;
+    [data-testid="stMarkdownContainer"] p {
+        color: #f1f5f9;
     }
 
-
-    /* ========================================================
-       TEXT INPUT
-       ======================================================== */
-
-    div[data-testid="stTextInput"] input {
-        border-radius: 12px !important;
-        color: #111111 !important;
-        font-weight: 600 !important;
-    }
-
-    div[data-testid="stTextInput"] input::placeholder {
-        color: #666666 !important;
-        opacity: 1 !important;
-    }
-
-
-    /* ========================================================
-       SELECTBOX
-       ======================================================== */
-
-    div[data-baseweb="select"] {
-        font-weight: 600 !important;
-    }
-
-
-    /* ========================================================
-       BUTTONS
-       ======================================================== */
-
-    div.stButton > button {
-        border-radius: 12px;
-        min-height: 44px;
-        font-weight: 700;
-    }
-
-    div.stDownloadButton > button {
-        border-radius: 12px;
-        min-height: 44px;
-        font-weight: 700;
-    }
-
-
-    /* ========================================================
-       CARDS
-       ======================================================== */
-
-    .status-card {
-        padding: 18px;
-        border-radius: 18px;
-        background: rgba(255,255,255,0.025);
-        border: 1px solid rgba(255,255,255,0.08);
-        margin-bottom: 12px;
-    }
-
-    .tool-card {
-        padding: 20px;
-        border-radius: 20px;
-        background: rgba(255,255,255,0.025);
-        border: 1px solid rgba(168,85,247,0.16);
-        margin-bottom: 18px;
-    }
-
-
-    /* ========================================================
-       ALERTS
-       ======================================================== */
-
-    div[data-testid="stAlert"] {
-        font-weight: 600 !important;
-    }
-
-
-    /* ========================================================
-       FILE UPLOADER
-       ======================================================== */
-
-    section[data-testid="stFileUploaderDropzone"] {
-        background: rgba(255,255,255,0.035);
-    }
-
-    section[data-testid="stFileUploaderDropzone"] * {
+    .stTextInput label,
+    .stTextArea label,
+    .stSelectbox label,
+    .stRadio label,
+    .stCheckbox label,
+    .stFileUploader label {
         color: #f1f5f9 !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
+    }
+
+    textarea,
+    input {
+        color: #111827 !important;
+        background: #ffffff !important;
+    }
+
+    textarea::placeholder,
+    input::placeholder {
+        color: #6b7280 !important;
+    }
+
+    .stTextInput > div > div,
+    .stTextArea > div > div {
+        border-radius: 12px;
+    }
+
+    .stButton > button {
+        border-radius: 12px;
+        border: 1px solid rgba(168, 85, 247, 0.35);
+        background:
+            linear-gradient(
+                135deg,
+                rgba(126, 34, 206, 0.95),
+                rgba(88, 28, 135, 0.95)
+            );
+        color: #ffffff !important;
+        font-weight: 800;
+        min-height: 44px;
+        box-shadow:
+            0 8px 24px rgba(0, 0, 0, 0.28),
+            inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+
+    .stButton > button:hover {
+        border-color: rgba(216, 180, 254, 0.75);
+        background:
+            linear-gradient(
+                135deg,
+                rgba(147, 51, 234, 1),
+                rgba(107, 33, 168, 1)
+            );
+    }
+
+    div[data-testid="stMetric"] {
+        background: rgba(25, 18, 36, 0.72);
+        border: 1px solid rgba(168, 85, 247, 0.22);
+        border-radius: 14px;
+        padding: 15px;
+    }
+
+    div[data-testid="stMetric"] label {
+        color: #d9dce5 !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color: #ffffff !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        color: #d9dce5;
+        font-weight: 700;
+        border-radius: 10px;
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #ffffff !important;
+        background: rgba(126, 34, 206, 0.18);
+    }
+
+    .stDownloadButton > button {
+        border-radius: 12px;
+        background: rgba(30, 20, 42, 0.9);
+        color: #ffffff !important;
+        border: 1px solid rgba(168, 85, 247, 0.32);
+        font-weight: 700;
+    }
+
+    .stAlert {
+        border-radius: 12px;
+    }
+
+    [data-testid="stFileUploaderDropzone"] {
+        background: rgba(20, 15, 29, 0.85);
+        border: 1px dashed rgba(168, 85, 247, 0.45);
+        border-radius: 14px;
     }
 
     </style>
@@ -302,15 +235,10 @@ st.markdown(
 
 
 # ============================================================
-# AI CHAT
+# AI
 # ============================================================
 
-def call_ai(
-    system_prompt,
-    user_prompt,
-    temperature=0.7,
-    max_tokens=1800,
-):
+def call_ai(system_prompt, user_prompt, temperature=0.7, max_tokens=1800):
 
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
@@ -337,7 +265,6 @@ def call_ai(
     }
 
     try:
-
         response = requests.post(
             CHAT_URL,
             headers=headers,
@@ -355,8 +282,7 @@ def call_ai(
         data = response.json()
 
         content = (
-            data
-            .get("choices", [{}])[0]
+            data.get("choices", [{}])[0]
             .get("message", {})
             .get("content", "")
         )
@@ -374,17 +300,12 @@ def call_ai(
 # IMAGE GENERATION
 # ============================================================
 
-def generate_image(
-    prompt,
-    width,
-    height,
-):
+def generate_image(prompt, width, height):
 
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
 
     try:
-
         client = InferenceClient(
             provider="auto",
             api_key=HF_API_KEY,
@@ -400,12 +321,11 @@ def generate_image(
         return image, None
 
     except Exception as e:
-
         return None, str(e)
 
 
 # ============================================================
-# TEXT -> VIDEO
+# TEXT TO VIDEO
 # ============================================================
 
 def generate_text_video(
@@ -419,22 +339,30 @@ def generate_text_video(
 
     try:
 
-        # SADECE VIDEO İÇİN PROVIDER SABİTLENDİ
-        # Wan2.1 T2V için Hugging Face'in güncel
-        # Text -> Video örneği fal-ai kullanıyor.
+        # --------------------------------------------------------
+        # IMPORTANT:
+        # fal-ai Wan 2.1 T2V currently requires 81-100 frames.
+        # The UI can still show "Kısa = 49", but we internally
+        # normalize it to the provider's valid range.
+        # --------------------------------------------------------
+
+        num_frames = max(81, min(int(num_frames), 100))
+
+        steps = max(1, min(int(steps), 50))
+
         client = InferenceClient(
             provider="fal-ai",
             api_key=HF_API_KEY,
         )
 
         video = client.text_to_video(
-            prompt,
+            prompt=prompt,
             model=VIDEO_T2V_MODEL,
             num_frames=num_frames,
             num_inference_steps=steps,
         )
 
-        if not video:
+        if video is None:
             return (
                 None,
                 "Provider video döndürmedi. "
@@ -444,12 +372,32 @@ def generate_text_video(
         if isinstance(video, bytes):
             return video, None
 
-        # Beklenmeyen provider cevabını açıkça bildir.
+        if isinstance(video, bytearray):
+            return bytes(video), None
+
+        if hasattr(video, "read"):
+            data = video.read()
+
+            if data:
+                return data, None
+
         return (
             None,
-            "Beklenmeyen video cevap tipi: "
-            f"{type(video).__name__}\n\n"
-            f"Provider cevabı:\n{repr(video)}",
+            "Beklenmeyen video cevap tipi.\n\n"
+            f"Cevap tipi: {type(video).__name__}\n"
+            f"Cevap: {repr(video)}",
+        )
+
+    except KeyError as e:
+
+        return (
+            None,
+            "Hugging Face / Fal AI provider beklenen video alanını "
+            "döndürmedi.\n\n"
+            f"KeyError: {e}\n\n"
+            f"Model: {VIDEO_T2V_MODEL}\n"
+            f"Frame: {num_frames}\n"
+            f"Steps: {steps}",
         )
 
     except Exception as e:
@@ -461,7 +409,7 @@ def generate_text_video(
 
 
 # ============================================================
-# IMAGE -> VIDEO
+# IMAGE TO VIDEO
 # ============================================================
 
 def generate_image_video(
@@ -490,7 +438,6 @@ def generate_image_video(
         return video, None
 
     except Exception as e:
-
         return None, str(e)
 
 
@@ -500,9 +447,7 @@ def generate_image_video(
 
 if not st.session_state.authenticated:
 
-    left, center, right = st.columns(
-        [1, 2, 1]
-    )
+    left, center, right = st.columns([1, 2, 1])
 
     with center:
 
@@ -513,15 +458,9 @@ if not st.session_state.authenticated:
 
         st.title("KOGCE AI Studio")
 
-        st.caption(
-            "AI CREATIVE WORKSPACE"
-        )
+        st.caption("AI CREATIVE WORKSPACE")
 
-        st.write(
-            "Create. Imagine. Generate."
-        )
-
-        st.write("")
+        st.write("Create. Imagine. Generate.")
 
         password = st.text_input(
             "Şifre",
@@ -542,13 +481,9 @@ if not st.session_state.authenticated:
 
             else:
 
-                st.error(
-                    "Hatalı şifre."
-                )
+                st.error("Hatalı şifre.")
 
-        st.caption(
-            "KOGCE AI Studio"
-        )
+        st.caption("KOGCE AI Studio")
 
     st.stop()
 
@@ -559,55 +494,27 @@ if not st.session_state.authenticated:
 
 with st.sidebar:
 
-    st.title(
-        "KOGCE AI Studio"
-    )
+    st.title("KOGCE AI Studio")
 
     st.divider()
 
     if HF_API_KEY:
-
-        st.success(
-            "AI SYSTEM ONLINE"
-        )
-
+        st.success("AI SYSTEM ONLINE")
     else:
+        st.error("HF KEY MISSING")
 
-        st.error(
-            "HF KEY MISSING"
-        )
+    st.markdown("### AI Motorları")
 
-    st.write(
-        "### Motorlar"
-    )
-
-    st.write(
-        "● AI Prompt Robotu"
-    )
-
-    st.write(
-        "● AI Senaryo"
-    )
-
-    st.write(
-        "● AI Scene Planner"
-    )
-
-    st.write(
-        "● FLUX Görsel"
-    )
-
-    st.write(
-        "● Wan Text → Video"
-    )
-
-    st.write(
-        "● LTX Image → Video"
-    )
+    st.write("AI Prompt Robotu")
+    st.write("AI Senaryo")
+    st.write("AI Scene Planner")
+    st.write("FLUX Görsel")
+    st.write("Wan Text → Video")
+    st.write("LTX Image → Video")
 
     st.divider()
 
-    st.caption(
+    st.write(
         f"Galeri: {len(st.session_state.gallery)} görsel"
     )
 
@@ -624,13 +531,9 @@ with st.sidebar:
 # HEADER
 # ============================================================
 
-st.title(
-    "KOGCE AI Studio"
-)
+st.title("KOGCE AI Studio")
 
-st.caption(
-    "AI Creative Workspace"
-)
+st.caption("AI Creative Workspace")
 
 st.write(
     "Fikir → Prompt → Görsel → Video → İçerik üretim araçları"
@@ -655,207 +558,164 @@ tabs = st.tabs(
 
 
 # ============================================================
-# IMAGE
+# IMAGE TAB
 # ============================================================
 
 with tabs[0]:
 
-    st.header(
-        "Görsel Üretim"
+    st.header("Görsel Üretim")
+
+    prompt = st.text_area(
+        "Prompt",
+        placeholder="Örneğin: A futuristic city at night...",
+        height=150,
     )
 
-    col1, col2 = st.columns(
-        [1.4, 1]
+    ai_boost = st.toggle(
+        "AI Prompt Robotu",
+        value=False,
     )
 
-    with col1:
+    aspect_ratio = st.selectbox(
+        "Aspect Ratio",
+        [
+            "1:1",
+            "9:16",
+            "16:9",
+        ],
+    )
 
-        prompt = st.text_area(
-            "Görsel fikrin",
-            height=150,
-            placeholder=(
-                "Örneğin: gece neon ışıkları altında "
-                "çalışan futuristic robot kedi..."
-            ),
-            key="image_prompt",
-        )
+    resolutions = {
+        "1:1": (768, 768),
+        "9:16": (768, 1344),
+        "16:9": (1344, 768),
+    }
 
-        use_ai_boost = st.toggle(
-            "AI Prompt Robotu",
-            value=True,
-        )
+    width, height = resolutions[aspect_ratio]
 
-        if use_ai_boost:
-
-            st.success(
-                "AI Prompt Robotu aktif"
-            )
-
-        else:
-
-            st.info(
-                "AI Prompt Robotu kapalı"
-            )
-
-    with col2:
-
-        aspect = st.selectbox(
-            "Görsel oranı",
-            [
-                "1:1 Kare",
-                "9:16 Dikey",
-                "16:9 Yatay",
-            ],
-        )
-
-        if aspect == "1:1 Kare":
-
-            width, height = 768, 768
-
-        elif aspect == "9:16 Dikey":
-
-            width, height = 768, 1344
-
-        else:
-
-            width, height = 1344, 768
-
-        st.info(
-            f"Çözünürlük: {width} × {height}"
-        )
+    st.caption(
+        f"Çözünürlük: {width} × {height}"
+    )
 
     if st.button(
-        "✨ Görsel Oluştur",
-        type="primary",
+        "✨ Görsel Üret",
         use_container_width=True,
     ):
 
         if not prompt.strip():
 
-            st.warning(
-                "Önce bir fikir veya prompt gir."
-            )
+            st.warning("Önce bir prompt gir.")
 
-            st.stop()
+        else:
 
-        final_prompt = prompt
+            final_prompt = prompt
 
-        if use_ai_boost:
+            if ai_boost:
 
-            with st.spinner(
-                "AI prompt geliştiriyor..."
-            ):
+                with st.spinner("AI prompt geliştiriyor..."):
 
-                enhanced, error = call_ai(
-                    """
-                    You are a professional image-generation
-                    prompt engineer.
+                    enhanced_prompt, error = call_ai(
+                        """
+                        You are a professional AI image prompt engineer.
 
-                    Transform the user's short idea into a
-                    detailed cinematic English prompt suitable
-                    for FLUX.
+                        Convert the user's simple idea into a detailed,
+                        production-ready English image generation prompt.
 
-                    Include:
+                        Describe:
+                        - subject
+                        - environment
+                        - composition
+                        - camera
+                        - lighting
+                        - materials
+                        - colors
+                        - atmosphere
+                        - visual quality
 
-                    subject,
-                    environment,
-                    composition,
-                    camera,
-                    lighting,
-                    materials,
-                    colors,
-                    atmosphere,
-                    visual quality.
+                        Do not explain your answer.
+                        Return only the final image prompt.
+                        """,
+                        prompt,
+                        temperature=0.7,
+                        max_tokens=1200,
+                    )
 
-                    Return only the final English prompt.
-                    """,
-                    prompt,
-                    temperature=0.7,
-                    max_tokens=1000,
+                if error:
+
+                    st.error(error)
+
+                elif enhanced_prompt:
+
+                    final_prompt = enhanced_prompt
+
+                    st.session_state.last_enhanced_prompt = (
+                        enhanced_prompt
+                    )
+
+                    with st.expander("AI tarafından geliştirilen prompt"):
+
+                        st.write(enhanced_prompt)
+
+            with st.spinner("Görsel oluşturuluyor..."):
+
+                image, error = generate_image(
+                    final_prompt,
+                    width,
+                    height,
                 )
 
             if error:
 
-                st.error(error)
-                st.stop()
+                st.error("Görsel üretilemedi.")
+                st.code(error)
 
-            final_prompt = enhanced
+            elif image:
 
-            st.subheader(
-                "AI tarafından geliştirilen prompt"
-            )
+                st.image(
+                    image,
+                    use_container_width=True,
+                )
 
-            st.write(
-                final_prompt
-            )
+                image_buffer = io.BytesIO()
 
-        st.session_state.last_prompt = prompt
+                image.save(
+                    image_buffer,
+                    format="PNG",
+                )
 
-        st.session_state.last_enhanced_prompt = (
-            final_prompt
-        )
+                image_bytes = image_buffer.getvalue()
 
-        with st.spinner(
-            "FLUX görsel oluşturuyor..."
-        ):
+                st.download_button(
+                    "⬇️ PNG İndir",
+                    data=image_bytes,
+                    file_name="kogce_ai_image.png",
+                    mime="image/png",
+                    use_container_width=True,
+                )
 
-            image, error = generate_image(
-                final_prompt,
-                width,
-                height,
-            )
+                st.session_state.gallery.append(
+                    {
+                        "image": image_bytes,
+                        "prompt": prompt,
+                        "final_prompt": final_prompt,
+                    }
+                )
 
-        if error:
+                st.session_state.last_prompt = prompt
 
-            st.error(error)
-
-        else:
-
-            st.image(
-                image,
-                use_container_width=True,
-            )
-
-            image_buffer = io.BytesIO()
-
-            image.save(
-                image_buffer,
-                format="PNG",
-            )
-
-            st.download_button(
-                "PNG İndir",
-                data=image_buffer.getvalue(),
-                file_name="kogce_ai_image.png",
-                mime="image/png",
-                use_container_width=True,
-            )
-
-            st.session_state.gallery.append(
-                {
-                    "image": image.copy(),
-                    "original_prompt": prompt,
-                    "final_prompt": final_prompt,
-                }
-            )
-
-            st.success(
-                "Görsel hazır."
-            )
+                st.success("Görsel başarıyla üretildi.")
 
 
 # ============================================================
-# VIDEO
+# VIDEO TAB
 # ============================================================
 
 with tabs[1]:
 
-    st.header(
-        "Video Studio"
-    )
+    st.header("Video Studio")
 
     video_mode = st.radio(
-        "Video üretim yöntemi",
+        "Video türü",
         [
             "Text → Video",
             "Image → Video",
@@ -863,141 +723,130 @@ with tabs[1]:
         horizontal=True,
     )
 
-    st.divider()
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # TEXT TO VIDEO
-    # ========================================================
+    # --------------------------------------------------------
 
     if video_mode == "Text → Video":
 
-        st.subheader(
-            "Text → Video"
-        )
+        st.subheader("Text → Video")
 
         st.caption(
             "Motor: Wan 2.1 T2V 1.3B"
         )
 
         video_prompt = st.text_area(
-            "Video promptu",
-            height=180,
+            "Video Prompt",
             placeholder=(
-                "A cinematic orange cat running through "
-                "a futuristic neon city, dynamic camera "
-                "movement, realistic lighting..."
+                "A cinematic shot of a futuristic city, "
+                "neon lights, moving camera, realistic motion..."
             ),
+            height=160,
         )
 
-        video_duration = st.selectbox(
-            "Video uzunluğu",
+        duration = st.selectbox(
+            "Video süresi",
             [
                 "Kısa",
                 "Orta",
             ],
         )
 
-        if video_duration == "Kısa":
+        # UI seçenekleri korunuyor.
+        # Provider tarafında 49 frame geçerli olmadığı için
+        # generate_text_video() bunu minimum 81'e normalize ediyor.
 
+        if duration == "Kısa":
             num_frames = 49
-
         else:
-
             num_frames = 81
 
-        video_steps = st.slider(
-            "Üretim adımı",
+        steps = st.slider(
+            "Inference Steps",
             min_value=10,
             max_value=30,
             value=20,
-            step=5,
         )
 
         st.info(
-            "Text → Video artık LTX modeliyle değil, "
-            "Text → Video destekleyen Wan 2.1 modeliyle çalışıyor."
+            "Text → Video, Wan 2.1 Text → Video modeliyle "
+            "çalışır."
         )
 
         if st.button(
-            "🎬 Video Oluştur",
-            type="primary",
+            "🎬 Video Üret",
             use_container_width=True,
         ):
 
             if not video_prompt.strip():
 
                 st.warning(
-                    "Video promptu gir."
-                )
-
-                st.stop()
-
-            with st.spinner(
-                "Wan 2.1 video oluşturuyor..."
-            ):
-
-                video, error = generate_text_video(
-                    video_prompt,
-                    num_frames=num_frames,
-                    steps=video_steps,
-                )
-
-            if error:
-
-                st.error(
-                    "Text → Video üretilemedi."
-                )
-
-                st.error(
-                    "Gerçek Hugging Face / Provider hatası:"
-                )
-
-                st.code(
-                    error
+                    "Önce bir video promptu gir."
                 )
 
             else:
 
-                st.session_state.generated_video = video
+                with st.spinner(
+                    "Video oluşturuluyor... Bu işlem biraz sürebilir."
+                ):
 
-                st.session_state.video_filename = (
-                    "kogce_text_to_video.mp4"
-                )
+                    video, error = generate_text_video(
+                        video_prompt,
+                        num_frames=num_frames,
+                        steps=steps,
+                    )
 
-                st.video(
-                    video
-                )
+                if error:
 
-                st.download_button(
-                    "MP4 İndir",
-                    data=video,
-                    file_name="kogce_text_to_video.mp4",
-                    mime="video/mp4",
-                    use_container_width=True,
-                )
+                    st.error(
+                        "Text → Video üretilemedi."
+                    )
 
-                st.success(
-                    "Text → Video hazır."
-                )
+                    st.error(
+                        "Gerçek Hugging Face / Provider hatası:"
+                    )
+
+                    st.code(error)
+
+                elif video:
+
+                    st.session_state.generated_video = video
+                    st.session_state.video_filename = (
+                        "kogce_text_to_video.mp4"
+                    )
+
+                    st.video(video)
+
+                    st.download_button(
+                        "⬇️ MP4 İndir",
+                        data=video,
+                        file_name=(
+                            st.session_state.video_filename
+                        ),
+                        mime="video/mp4",
+                        use_container_width=True,
+                    )
+
+                    st.success(
+                        "Video başarıyla üretildi."
+                    )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # IMAGE TO VIDEO
-    # ========================================================
+    # --------------------------------------------------------
 
     else:
 
-        st.subheader(
-            "Image → Video"
-        )
+        st.subheader("Image → Video")
 
         st.caption(
             "Motor: LTX-Video 0.9.8 13B Distilled"
         )
 
-        uploaded_image = st.file_uploader(
-            "Başlangıç görselini yükle",
+        uploaded_file = st.file_uploader(
+            "Görsel yükle",
             type=[
                 "png",
                 "jpg",
@@ -1006,107 +855,85 @@ with tabs[1]:
             ],
         )
 
-        image_video_prompt = st.text_area(
-            "Hareket promptu",
-            height=160,
+        motion_prompt = st.text_area(
+            "Motion Prompt",
             placeholder=(
-                "The subject starts moving naturally, "
+                "The subject moves naturally, "
                 "camera slowly pushes forward, "
-                "hair and clothes move with the wind..."
+                "cinematic motion..."
             ),
+            height=140,
         )
 
-        if uploaded_image:
+        if uploaded_file:
 
-            input_image = Image.open(
-                uploaded_image
+            image = Image.open(
+                uploaded_file
             ).convert("RGB")
 
             st.image(
-                input_image,
-                caption="Başlangıç görseli",
+                image,
+                caption="Kaynak Görsel",
                 use_container_width=True,
             )
 
-        if st.button(
-            "🎥 Görselden Video Oluştur",
-            type="primary",
-            use_container_width=True,
-        ):
-
-            if uploaded_image is None:
-
-                st.warning(
-                    "Önce bir görsel yükle."
-                )
-
-                st.stop()
-
-            if not image_video_prompt.strip():
-
-                st.warning(
-                    "Hareket promptu gir."
-                )
-
-                st.stop()
-
-            with st.spinner(
-                "LTX görseli videoya dönüştürüyor..."
+            if st.button(
+                "🎬 Image → Video Üret",
+                use_container_width=True,
             ):
 
-                video, error = generate_image_video(
-                    input_image,
-                    image_video_prompt,
-                    num_frames=49,
-                )
+                with st.spinner(
+                    "Video oluşturuluyor..."
+                ):
 
-            if error:
+                    video, error = generate_image_video(
+                        image,
+                        motion_prompt,
+                        num_frames=49,
+                    )
 
-                st.error(
-                    "Image → Video üretilemedi."
-                )
+                if error:
 
-                st.code(
-                    error
-                )
+                    st.error(
+                        "Image → Video üretilemedi."
+                    )
 
-            else:
+                    st.code(error)
 
-                st.session_state.generated_video = video
+                elif video:
 
-                st.session_state.video_filename = (
-                    "kogce_image_to_video.mp4"
-                )
+                    st.session_state.generated_video = video
+                    st.session_state.video_filename = (
+                        "kogce_image_to_video.mp4"
+                    )
 
-                st.video(
-                    video
-                )
+                    st.video(video)
 
-                st.download_button(
-                    "MP4 İndir",
-                    data=video,
-                    file_name="kogce_image_to_video.mp4",
-                    mime="video/mp4",
-                    use_container_width=True,
-                )
+                    st.download_button(
+                        "⬇️ MP4 İndir",
+                        data=video,
+                        file_name=(
+                            st.session_state.video_filename
+                        ),
+                        mime="video/mp4",
+                        use_container_width=True,
+                    )
 
-                st.success(
-                    "Image → Video hazır."
-                )
+                    st.success(
+                        "Video başarıyla üretildi."
+                    )
 
 
 # ============================================================
-# AI TOOLS
+# AI TOOLS TAB
 # ============================================================
 
 with tabs[2]:
 
-    st.header(
-        "AI Araçları"
-    )
+    st.header("AI Araçları")
 
     tool = st.selectbox(
-        "Araç seç",
+        "AI Aracı",
         [
             "AI Prompt Robotu",
             "AI Senaryo Yazarı",
@@ -1116,521 +943,439 @@ with tabs[2]:
         ],
     )
 
-    st.divider()
 
-
-    # ========================================================
+    # --------------------------------------------------------
     # PROMPT ROBOT
-    # ========================================================
+    # --------------------------------------------------------
 
     if tool == "AI Prompt Robotu":
 
-        st.subheader(
-            "AI Prompt Robotu"
-        )
+        st.subheader("AI Prompt Robotu")
 
         idea = st.text_area(
-            "Fikrini yaz",
-            height=160,
+            "Fikrin",
+            height=150,
             placeholder="Kısa fikrini yaz...",
-        )
-
-        style = st.selectbox(
-            "Stil",
-            [
-                "Cinematic",
-                "Photorealistic",
-                "3D Animation",
-                "Fantasy",
-                "Sci-Fi",
-                "Commercial",
-                "Cute",
-                "Dark",
-            ],
         )
 
         if st.button(
             "Prompt Oluştur",
-            type="primary",
             use_container_width=True,
         ):
 
             if not idea.strip():
 
-                st.warning(
-                    "Bir fikir gir."
-                )
-
-                st.stop()
-
-            result, error = call_ai(
-                """
-                You are an expert AI image and video
-                prompt engineer.
-
-                Turn the user's idea into a highly detailed
-                English production prompt.
-
-                Include subject, environment, composition,
-                camera, lighting, motion, materials,
-                atmosphere and quality.
-
-                Keep the result practical for generative AI.
-                """,
-                f"""
-                User idea:
-                {idea}
-
-                Desired style:
-                {style}
-                """,
-                max_tokens=1400,
-            )
-
-            if error:
-
-                st.error(error)
+                st.warning("Önce fikir gir.")
 
             else:
 
-                st.text_area(
-                    "Generated Prompt",
-                    value=result,
-                    height=300,
-                )
+                with st.spinner(
+                    "Profesyonel prompt hazırlanıyor..."
+                ):
+
+                    result, error = call_ai(
+                        """
+                        You are an expert AI image prompt engineer.
+
+                        Transform the user's idea into an extremely
+                        detailed English image-generation prompt.
+
+                        Include:
+                        subject, environment, composition,
+                        camera angle, lens, lighting, colors,
+                        materials, atmosphere, depth, realism,
+                        and visual quality.
+
+                        Return only the final prompt.
+                        """,
+                        idea,
+                        temperature=0.75,
+                        max_tokens=1800,
+                    )
+
+                if error:
+                    st.error(error)
+                else:
+                    st.text_area(
+                        "Generated Prompt",
+                        value=result,
+                        height=300,
+                    )
 
 
-    # ========================================================
-    # SCRIPT
-    # ========================================================
+    # --------------------------------------------------------
+    # SCRIPT WRITER
+    # --------------------------------------------------------
 
     elif tool == "AI Senaryo Yazarı":
 
-        st.subheader(
-            "AI Senaryo Yazarı"
-        )
+        st.subheader("AI Senaryo Yazarı")
 
         topic = st.text_area(
             "Video konusu",
-            height=130,
+            height=150,
         )
 
         duration = st.selectbox(
-            "Video tipi",
+            "Hedef süre",
             [
-                "YouTube Short",
-                "1 dakika",
+                "30 saniye",
+                "60 saniye",
+                "90 saniye",
                 "3 dakika",
-                "5 dakika",
-            ],
-        )
-
-        language = st.selectbox(
-            "Dil",
-            [
-                "English",
-                "Türkçe",
             ],
         )
 
         if st.button(
-            "Senaryo Oluştur",
-            type="primary",
+            "Senaryo Yaz",
             use_container_width=True,
         ):
 
             if not topic.strip():
 
-                st.warning(
-                    "Konu gir."
-                )
-
-                st.stop()
-
-            script, error = call_ai(
-                """
-                You are a professional YouTube scriptwriter.
-
-                Create a concise, engaging video script.
-
-                Structure:
-                Hook
-                Development
-                Payoff
-                Ending
-
-                Make every section useful for actual
-                video production.
-                """,
-                f"""
-                Topic:
-                {topic}
-
-                Video format:
-                {duration}
-
-                Language:
-                {language}
-                """,
-                max_tokens=2500,
-            )
-
-            if error:
-
-                st.error(error)
+                st.warning("Konu gir.")
 
             else:
 
-                st.session_state.last_script = script
+                with st.spinner(
+                    "Senaryo hazırlanıyor..."
+                ):
 
-                st.text_area(
-                    "Senaryo",
-                    value=script,
-                    height=500,
-                )
+                    result, error = call_ai(
+                        """
+                        You are a professional viral video script writer.
+
+                        Create a complete, engaging script based on
+                        the user's topic.
+
+                        Structure it with:
+                        - Hook
+                        - Setup
+                        - Development
+                        - Retention moments
+                        - Payoff
+                        - Ending
+
+                        Keep the language natural and suitable for
+                        short-form video.
+
+                        Return the complete script.
+                        """,
+                        f"""
+                        Topic:
+                        {topic}
+
+                        Target duration:
+                        {duration}
+                        """,
+                        temperature=0.8,
+                        max_tokens=2500,
+                    )
+
+                if error:
+
+                    st.error(error)
+
+                else:
+
+                    st.session_state.last_script = result
+
+                    st.text_area(
+                        "Senaryo",
+                        value=result,
+                        height=450,
+                    )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # SCENE PLANNER
-    # ========================================================
+    # --------------------------------------------------------
 
     elif tool == "AI Sahne Planlayıcı":
 
-        st.subheader(
-            "AI Sahne Planlayıcı"
-        )
+        st.subheader("AI Sahne Planlayıcı")
 
-        scene_story = st.text_area(
-            "Senaryoyu veya fikri gir",
-            height=220,
-        )
-
-        scene_count = st.slider(
-            "Sahne sayısı",
-            2,
-            20,
-            6,
+        script = st.text_area(
+            "Senaryoyu gir",
+            height=250,
         )
 
         if st.button(
             "Sahneleri Planla",
-            type="primary",
             use_container_width=True,
         ):
 
-            if not scene_story.strip():
+            if not script.strip():
 
-                st.warning(
-                    "Senaryo veya fikir gir."
-                )
-
-                st.stop()
-
-            scenes, error = call_ai(
-                """
-                You are a professional AI video director.
-
-                Break the story into production-ready scenes.
-
-                For each scene provide:
-
-                Scene number
-                Duration
-                Visual description
-                Camera
-                Motion
-                Lighting
-                Environment
-                Image prompt
-                Video prompt
-                Voiceover
-
-                Keep character appearance consistent.
-                """,
-                f"""
-                Story:
-                {scene_story}
-
-                Number of scenes:
-                {scene_count}
-                """,
-                max_tokens=4500,
-            )
-
-            if error:
-
-                st.error(error)
+                st.warning("Önce senaryo gir.")
 
             else:
 
-                st.session_state.last_scenes = scenes
+                with st.spinner(
+                    "Sahne planı hazırlanıyor..."
+                ):
 
-                st.text_area(
-                    "Sahne Planı",
-                    value=scenes,
-                    height=650,
-                )
+                    result, error = call_ai(
+                        """
+                        You are a professional film director,
+                        storyboard artist and AI video production planner.
+
+                        Break the supplied script into logical scenes.
+
+                        For every scene provide:
+                        1. Scene number
+                        2. Duration
+                        3. Visual description
+                        4. Camera movement
+                        5. Character action
+                        6. Environment
+                        7. Lighting
+                        8. Audio/SFX
+                        9. AI generation notes
+
+                        Make the scenes visually consistent.
+                        """,
+                        script,
+                        temperature=0.75,
+                        max_tokens=3000,
+                    )
+
+                if error:
+
+                    st.error(error)
+
+                else:
+
+                    st.session_state.last_scenes = result
+
+                    st.text_area(
+                        "Sahne Planı",
+                        value=result,
+                        height=550,
+                    )
 
 
-    # ========================================================
-    # VIDEO PROMPT
-    # ========================================================
+    # --------------------------------------------------------
+    # VIDEO PROMPT GENERATOR
+    # --------------------------------------------------------
 
     elif tool == "AI Video Prompt Üretici":
 
-        st.subheader(
-            "AI Video Prompt Üretici"
-        )
+        st.subheader("AI Video Prompt Üretici")
 
-        idea = st.text_area(
-            "Video fikri",
-            height=150,
-        )
-
-        camera = st.selectbox(
-            "Kamera",
-            [
-                "Cinematic",
-                "Close-up",
-                "Wide shot",
-                "Tracking shot",
-                "Slow push-in",
-                "Handheld",
-                "Drone",
-            ],
-        )
-
-        motion = st.text_input(
-            "Hareket",
-            placeholder="running, jumping, turning...",
+        scene = st.text_area(
+            "Sahne fikri",
+            height=180,
         )
 
         if st.button(
             "Video Prompt Oluştur",
-            type="primary",
             use_container_width=True,
         ):
 
-            if not idea.strip():
+            if not scene.strip():
 
-                st.warning(
-                    "Fikir gir."
-                )
-
-                st.stop()
-
-            result, error = call_ai(
-                """
-                You are an expert text-to-video prompt engineer.
-
-                Create a professional English video-generation
-                prompt.
-
-                Focus on:
-                subject consistency,
-                physical motion,
-                camera movement,
-                environment,
-                lighting,
-                cinematic composition,
-                realistic temporal consistency.
-
-                Return only the final prompt.
-                """,
-                f"""
-                Idea:
-                {idea}
-
-                Camera:
-                {camera}
-
-                Motion:
-                {motion}
-                """,
-                max_tokens=1600,
-            )
-
-            if error:
-
-                st.error(error)
+                st.warning("Sahne fikri gir.")
 
             else:
 
-                st.text_area(
-                    "Video Prompt",
-                    value=result,
-                    height=350,
-                )
+                with st.spinner(
+                    "Video prompt hazırlanıyor..."
+                ):
+
+                    result, error = call_ai(
+                        """
+                        You are an expert AI video-generation prompt
+                        engineer.
+
+                        Convert the scene idea into a detailed
+                        production-ready English video prompt.
+
+                        Focus on:
+                        subject movement,
+                        camera movement,
+                        environment movement,
+                        lighting,
+                        realistic physics,
+                        cinematic composition,
+                        depth,
+                        timing,
+                        atmosphere,
+                        visual consistency.
+
+                        Do not explain.
+                        Return only the final video prompt.
+                        """,
+                        scene,
+                        temperature=0.75,
+                        max_tokens=1800,
+                    )
+
+                if error:
+
+                    st.error(error)
+
+                else:
+
+                    st.text_area(
+                        "Video Prompt",
+                        value=result,
+                        height=350,
+                    )
 
 
-    # ========================================================
-    # SHORTS IDEAS
-    # ========================================================
+    # --------------------------------------------------------
+    # SHORTS IDEA ENGINE
+    # --------------------------------------------------------
 
-    else:
+    elif tool == "AI Shorts Fikir Motoru":
 
-        st.subheader(
-            "AI Shorts Fikir Motoru"
-        )
+        st.subheader("AI Shorts Fikir Motoru")
 
         niche = st.text_input(
-            "Niş",
-            placeholder=(
-                "Gaming, AI, animals, satisfying..."
-            ),
+            "Niş / konu",
+            placeholder="Örneğin: AI, gaming, animals, satisfying...",
         )
 
         count = st.slider(
             "Fikir sayısı",
-            5,
-            30,
-            10,
+            min_value=5,
+            max_value=20,
+            value=10,
         )
 
         if st.button(
             "Fikirleri Üret",
-            type="primary",
             use_container_width=True,
         ):
 
             if not niche.strip():
 
-                st.warning(
-                    "Niş gir."
-                )
-
-                st.stop()
-
-            ideas, error = call_ai(
-                """
-                You are a global YouTube Shorts
-                creative strategist.
-
-                Generate original Shorts concepts.
-
-                For every concept include:
-
-                title,
-                hook,
-                concept,
-                visual,
-                ending,
-                replay/loop idea.
-
-                Focus on concepts that can be produced
-                with AI tools.
-                """,
-                f"""
-                Niche:
-                {niche}
-
-                Number of ideas:
-                {count}
-                """,
-                max_tokens=4000,
-            )
-
-            if error:
-
-                st.error(error)
+                st.warning("Bir niş gir.")
 
             else:
 
-                st.text_area(
-                    "Shorts Fikirleri",
-                    value=ideas,
-                    height=650,
-                )
+                with st.spinner(
+                    "Viral Shorts fikirleri araştırılıyor..."
+                ):
+
+                    result, error = call_ai(
+                        """
+                        You are a global short-form video strategist.
+
+                        Generate original YouTube Shorts ideas.
+
+                        Prioritize:
+                        - strong first-second hooks
+                        - visual simplicity
+                        - high retention
+                        - curiosity
+                        - replayability
+                        - international appeal
+                        - easy AI/video production
+
+                        For every idea provide:
+                        1. Title
+                        2. Hook
+                        3. Concept
+                        4. Why viewers may keep watching
+                        5. Visual production idea
+
+                        Do not repeat generic ideas.
+                        """,
+                        f"""
+                        Niche:
+                        {niche}
+
+                        Number of ideas:
+                        {count}
+                        """,
+                        temperature=0.9,
+                        max_tokens=3500,
+                    )
+
+                if error:
+
+                    st.error(error)
+
+                else:
+
+                    st.text_area(
+                        "Shorts Fikirleri",
+                        value=result,
+                        height=600,
+                    )
 
 
 # ============================================================
-# GALLERY
+# GALLERY TAB
 # ============================================================
 
 with tabs[3]:
 
-    st.header(
-        "Galeri"
-    )
+    st.header("Galeri")
 
     if not st.session_state.gallery:
 
         st.info(
-            "Henüz bu oturumda oluşturulmuş görsel yok."
+            "Henüz bu oturumda oluşturulmuş bir görsel yok."
         )
 
     else:
 
-        for index, item in enumerate(
-            reversed(
-                st.session_state.gallery
-            ),
-            start=1,
+        for item in reversed(
+            st.session_state.gallery
         ):
 
-            st.subheader(
-                f"Görsel {index}"
+            st.image(
+                item["image"],
+                use_container_width=True,
             )
 
-            c1, c2 = st.columns(
-                [1, 1]
+            st.caption(
+                "Orijinal Prompt"
             )
 
-            with c1:
+            st.write(
+                item["prompt"]
+            )
 
-                st.image(
-                    item["image"],
-                    use_container_width=True,
-                )
+            st.caption(
+                "Final Prompt"
+            )
 
-            with c2:
-
-                st.write(
-                    "Orijinal fikir"
-                )
-
-                st.write(
-                    item["original_prompt"]
-                )
-
-                st.write(
-                    "Final prompt"
-                )
-
-                st.write(
-                    item["final_prompt"]
-                )
+            st.write(
+                item["final_prompt"]
+            )
 
             st.divider()
 
 
 # ============================================================
-# SYSTEM
+# SYSTEM TAB
 # ============================================================
 
 with tabs[4]:
 
-    st.header(
-        "Sistem"
-    )
+    st.header("Sistem")
 
-    c1, c2, c3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    with c1:
+    with col1:
 
         st.metric(
             "HF API",
-            "AKTİF" if HF_API_KEY else "YOK",
+            "ONLINE" if HF_API_KEY else "MISSING",
         )
 
-    with c2:
+    with col2:
 
         st.metric(
             "Görsel Motoru",
             "FLUX",
         )
 
-    with c3:
+    with col3:
 
         st.metric(
             "Video Motoru",
@@ -1639,45 +1384,41 @@ with tabs[4]:
 
     st.divider()
 
-    st.subheader(
-        "Aktif modeller"
-    )
+    st.subheader("Aktif Model ID'leri")
 
-    st.write(
-        f"AI: `{PROMPT_MODEL}`"
-    )
+    st.code(
+        f"""
+Prompt:
+{PROMPT_MODEL}
 
-    st.write(
-        f"Image: `{IMAGE_MODEL}`"
-    )
+Image:
+{IMAGE_MODEL}
 
-    st.write(
-        f"Text → Video: `{VIDEO_T2V_MODEL}`"
-    )
+Text → Video:
+{VIDEO_T2V_MODEL}
 
-    st.write(
-        f"Image → Video: `{VIDEO_I2V_MODEL}`"
+Image → Video:
+{VIDEO_I2V_MODEL}
+""".strip()
     )
 
     st.divider()
 
-    st.subheader(
-        "Oturum"
-    )
+    st.subheader("Oturum")
 
     st.write(
-        f"Oluşturulan görsel: "
+        f"Galerideki görsel sayısı: "
         f"{len(st.session_state.gallery)}"
     )
 
     if st.session_state.generated_video:
 
         st.success(
-            "Bu oturumda video oluşturuldu."
+            "Son video üretimi mevcut."
         )
 
     else:
 
         st.info(
-            "Bu oturumda henüz video oluşturulmadı."
+            "Bu oturumda henüz başarılı video üretimi yok."
         )
