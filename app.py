@@ -1759,10 +1759,6 @@ with tabs[2]:
         horizontal=True,
     )
 
-    # --------------------------------------------------------
-    # TEXT TO VIDEO
-    # --------------------------------------------------------
-
     if video_mode == "Text → Video":
 
         st.subheader("Text → Video")
@@ -1920,11 +1916,6 @@ with tabs[2]:
                     st.success(
                         "Video başarıyla üretildi."
                     )
-
-
-    # --------------------------------------------------------
-    # IMAGE TO VIDEO
-    # --------------------------------------------------------
 
     else:
 
@@ -2100,10 +2091,6 @@ with tabs[3]:
         ],
     )
 
-    # --------------------------------------------------------
-    # PROMPT ROBOT
-    # --------------------------------------------------------
-
     if tool == "AI Prompt Robotu":
 
         st.subheader("AI Prompt Robotu")
@@ -2163,11 +2150,6 @@ Return only the final prompt.
                         value=result,
                         height=330,
                     )
-
-
-    # --------------------------------------------------------
-    # SCRIPT
-    # --------------------------------------------------------
 
     elif tool == "AI Senaryo Yazarı":
 
@@ -2246,11 +2228,6 @@ Target duration:
                         height=450,
                     )
 
-
-    # --------------------------------------------------------
-    # SCENE PLANNER
-    # --------------------------------------------------------
-
     elif tool == "AI Sahne Planlayıcı":
 
         st.subheader("AI Sahne Planlayıcı")
@@ -2315,11 +2292,6 @@ Maintain character and visual consistency.
                         value=result,
                         height=550,
                     )
-
-
-    # --------------------------------------------------------
-    # VIDEO PROMPT
-    # --------------------------------------------------------
 
     elif tool == "AI Video Prompt Üretici":
 
@@ -2387,11 +2359,6 @@ Return only the final video prompt.
                         value=result,
                         height=350,
                     )
-
-
-    # --------------------------------------------------------
-    # SHORTS IDEAS
-    # --------------------------------------------------------
 
     elif tool == "AI Shorts Fikir Motoru":
 
