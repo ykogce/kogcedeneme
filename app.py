@@ -326,7 +326,7 @@ def generate_image(prompt, width, height):
 
 # ============================================================
 # TEXT TO VIDEO
-# ONLY THIS FUNCTION WAS CHANGED
+# ONLY VIDEO ERROR FIX
 # ============================================================
 
 def generate_text_video(
@@ -340,7 +340,6 @@ def generate_text_video(
 
     try:
 
-        # Wan 2.1 requires 81-100 frames.
         num_frames = max(
             81,
             min(int(num_frames), 100)
@@ -351,9 +350,6 @@ def generate_text_video(
             min(int(steps), 50)
         )
 
-        # Hugging Face's Fal mapping for Wan T2V.
-        # We use the queue endpoint directly instead of
-        # letting InferenceClient parse the final response.
         endpoint = (
             "https://router.huggingface.co/"
             "fal-ai/fal-ai/wan-t2v"
@@ -395,6 +391,7 @@ def generate_text_video(
         try:
             queue_data = response.json()
         except Exception:
+
             return (
                 None,
                 "Provider geçerli JSON cevap döndürmedi.\n\n"
@@ -403,54 +400,35 @@ def generate_text_video(
             )
 
         request_id = queue_data.get("request_id")
+        status_url = queue_data.get("status_url")
         response_url = queue_data.get("response_url")
 
         if not request_id:
+
             return (
                 None,
                 "Provider request_id döndürmedi.\n\n"
                 f"Provider cevabı:\n{queue_data}",
             )
 
+        if not status_url:
+
+            return (
+                None,
+                "Provider status_url döndürmedi.\n\n"
+                f"Provider cevabı:\n{queue_data}",
+            )
+
         if not response_url:
+
             return (
                 None,
                 "Provider response_url döndürmedi.\n\n"
                 f"Provider cevabı:\n{queue_data}",
             )
 
-        # --------------------------------------------------------
-        # Build status/result URLs from provider response.
-        # This follows the Hugging Face Fal queue flow.
-        # --------------------------------------------------------
-
-        from urllib.parse import urlparse
-
-        parsed = urlparse(response_url)
-
-        model_path = parsed.path
-
-        status_url = (
-            "https://router.huggingface.co"
-            "/fal-ai"
-            f"{model_path}"
-            "/status"
-            "?_subdomain=queue"
-        )
-
-        result_url = (
-            "https://router.huggingface.co"
-            "/fal-ai"
-            f"{model_path}"
-            "?_subdomain=queue"
-        )
-
-        # --------------------------------------------------------
-        # Poll until Fal finishes.
-        # --------------------------------------------------------
-
         max_wait_seconds = 600
-        poll_interval = 1.0
+        poll_interval = 2
 
         start_time = time.time()
 
@@ -459,10 +437,12 @@ def generate_text_video(
             elapsed = time.time() - start_time
 
             if elapsed > max_wait_seconds:
+
                 return (
                     None,
                     "Video üretimi zaman aşımına uğradı.\n\n"
-                    f"Beklenen süre: {max_wait_seconds} saniye\n"
+                    f"Beklenen maksimum süre: "
+                    f"{max_wait_seconds} saniye\n"
                     f"Request ID: {request_id}",
                 )
 
@@ -491,6 +471,7 @@ def generate_text_video(
             try:
                 status_data = status_response.json()
             except Exception:
+
                 return (
                     None,
                     "Fal durum cevabı JSON değil.\n\n"
@@ -517,12 +498,8 @@ def generate_text_video(
 
             time.sleep(poll_interval)
 
-        # --------------------------------------------------------
-        # Get completed result.
-        # --------------------------------------------------------
-
         result_response = requests.get(
-            result_url,
+            response_url,
             headers={
                 "Authorization": f"Bearer {HF_API_KEY}",
             },
@@ -546,22 +523,12 @@ def generate_text_video(
         try:
             result_data = result_response.json()
         except Exception:
+
             return (
                 None,
                 "Fal sonuç cevabı JSON değil.\n\n"
                 f"{result_response.text[:4000]}",
             )
-
-        # --------------------------------------------------------
-        # The expected structure is:
-        #
-        # {
-        #   "video": {
-        #       "url": "..."
-        #   }
-        # }
-        #
-        # --------------------------------------------------------
 
         video_info = result_data.get("video")
 
@@ -584,10 +551,6 @@ def generate_text_video(
                 "video URL'si bulunamadı.\n\n"
                 f"Video alanı:\n{video_info}",
             )
-
-        # --------------------------------------------------------
-        # Download MP4.
-        # --------------------------------------------------------
 
         video_response = requests.get(
             video_url,
@@ -626,7 +589,8 @@ def generate_text_video(
 
         return (
             None,
-            f"Provider bağlantı hatası:\n{type(e).__name__}: {e}",
+            f"Provider bağlantı hatası:\n"
+            f"{type(e).__name__}: {e}",
         )
 
     except Exception as e:
