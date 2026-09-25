@@ -1,4 +1,3 @@
-```python
 import io
 import time
 import requests
@@ -2662,4 +2661,3 @@ with tabs[5]:
     st.caption(
         "KOGCE AI Studio • Private AI Creative Workspace"
     )
-```
