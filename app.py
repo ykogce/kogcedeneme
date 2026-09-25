@@ -326,7 +326,6 @@ def generate_image(prompt, width, height):
 
 # ============================================================
 # TEXT TO VIDEO
-# ONLY VIDEO ERROR FIX
 # ============================================================
 
 def generate_text_video(
@@ -400,8 +399,6 @@ def generate_text_video(
             )
 
         request_id = queue_data.get("request_id")
-        status_url = queue_data.get("status_url")
-        response_url = queue_data.get("response_url")
 
         if not request_id:
 
@@ -411,21 +408,23 @@ def generate_text_video(
                 f"Provider cevabı:\n{queue_data}",
             )
 
-        if not status_url:
+        # ----------------------------------------------------
+        # HUGGING FACE ROUTER ÜZERİNDEN DURUM SORGULAMA
+        # ----------------------------------------------------
 
-            return (
-                None,
-                "Provider status_url döndürmedi.\n\n"
-                f"Provider cevabı:\n{queue_data}",
-            )
+        status_url = (
+            "https://router.huggingface.co/"
+            f"fal-ai/fal-ai/wan-t2v/requests/"
+            f"{request_id}/status"
+            "?_subdomain=queue"
+        )
 
-        if not response_url:
-
-            return (
-                None,
-                "Provider response_url döndürmedi.\n\n"
-                f"Provider cevabı:\n{queue_data}",
-            )
+        result_url = (
+            "https://router.huggingface.co/"
+            f"fal-ai/fal-ai/wan-t2v/requests/"
+            f"{request_id}"
+            "?_subdomain=queue"
+        )
 
         max_wait_seconds = 600
         poll_interval = 2
@@ -480,7 +479,18 @@ def generate_text_video(
 
             status = status_data.get("status")
 
+            if status == "IN_QUEUE":
+
+                time.sleep(poll_interval)
+                continue
+
+            if status == "IN_PROGRESS":
+
+                time.sleep(poll_interval)
+                continue
+
             if status == "COMPLETED":
+
                 break
 
             if status in (
@@ -498,8 +508,12 @@ def generate_text_video(
 
             time.sleep(poll_interval)
 
+        # ----------------------------------------------------
+        # SONUCU AL
+        # ----------------------------------------------------
+
         result_response = requests.get(
-            response_url,
+            result_url,
             headers={
                 "Authorization": f"Bearer {HF_API_KEY}",
             },
@@ -955,9 +969,9 @@ with tabs[1]:
 
         steps = st.slider(
             "Inference Steps",
-            min_value=10,
-            max_value=30,
-            value=20,
+            10,
+            30,
+            20,
         )
 
         st.info(
