@@ -30,7 +30,7 @@ APP_PASSWORD = "1234"
 
 
 # ============================================================
-# SESSION STATE
+# SESSION
 # ============================================================
 
 if "authenticated" not in st.session_state:
@@ -41,26 +41,36 @@ if "history" not in st.session_state:
 
 
 # ============================================================
-# CSS
+# DESIGN SYSTEM
 # ============================================================
 
 st.markdown(
     """
     <style>
 
+    /* =========================
+       GLOBAL
+       ========================= */
+
     .stApp {
         background:
             radial-gradient(
-                circle at 15% 10%,
-                rgba(80, 70, 180, 0.16),
-                transparent 28%
+                circle at 8% 5%,
+                rgba(103, 88, 255, 0.15),
+                transparent 25%
             ),
             radial-gradient(
-                circle at 85% 15%,
-                rgba(0, 180, 255, 0.10),
-                transparent 28%
+                circle at 92% 8%,
+                rgba(0, 183, 255, 0.10),
+                transparent 24%
             ),
-            #080a10;
+            linear-gradient(
+                135deg,
+                #07090e 0%,
+                #0a0d14 50%,
+                #080a10 100%
+            );
+
         color: #f5f7fb;
     }
 
@@ -70,163 +80,216 @@ st.markdown(
         padding-bottom: 4rem;
     }
 
+
+    /* =========================
+       SIDEBAR
+       ========================= */
+
     section[data-testid="stSidebar"] {
-        background: #0b0e15;
-        border-right: 1px solid rgba(255,255,255,0.07);
+        background:
+            linear-gradient(
+                180deg,
+                #0b0e15 0%,
+                #090b11 100%
+            );
+
+        border-right: 1px solid rgba(255,255,255,0.06);
     }
 
     section[data-testid="stSidebar"] .block-container {
         padding-top: 2rem;
     }
 
-    .hero-wrapper {
-        padding: 35px 0 30px 0;
+
+    /* =========================
+       LOGIN
+       ========================= */
+
+    .login-space {
+        height: 9vh;
     }
 
-    .hero-badge {
-        display: inline-block;
-        padding: 7px 14px;
-        border-radius: 999px;
-        background: rgba(120, 100, 255, 0.12);
-        border: 1px solid rgba(130, 110, 255, 0.28);
-        color: #b9b0ff;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 1.8px;
-        margin-bottom: 18px;
-    }
+    .login-title {
+        text-align: center;
+        font-size: 46px;
+        font-weight: 850;
+        letter-spacing: -2px;
+        margin-bottom: 4px;
 
-    .hero-title {
-        font-size: clamp(42px, 6vw, 76px);
-        line-height: 0.98;
-        font-weight: 800;
-        letter-spacing: -3px;
-        margin-bottom: 20px;
-        background: linear-gradient(
-            90deg,
-            #ffffff 0%,
-            #d8d5ff 45%,
-            #8ccfff 100%
-        );
+        background:
+            linear-gradient(
+                100deg,
+                #ffffff 0%,
+                #d8d5ff 45%,
+                #8dd7ff 100%
+            );
+
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
-    .hero-subtitle {
-        max-width: 780px;
-        color: #9da5b5;
-        font-size: 18px;
-        line-height: 1.65;
-    }
-
-    .section-title {
-        font-size: 25px;
-        font-weight: 750;
-        margin-bottom: 5px;
-    }
-
-    .section-description {
-        color: #8f98aa;
-        font-size: 14px;
-        margin-bottom: 20px;
-    }
-
-    .status-card {
-        background: rgba(17, 20, 29, 0.75);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 16px;
-        padding: 18px;
-        margin-bottom: 12px;
-    }
-
-    .status-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: #f1f3f8;
-        margin-bottom: 6px;
-    }
-
-    .status-value {
-        font-size: 13px;
-        color: #8f98aa;
-    }
-
-    .online {
-        color: #72e6a4;
-    }
-
-    .offline {
-        color: #ff8585;
-    }
-
-    .warning {
-        color: #ffc86b;
-    }
-
-    .login-box {
-        max-width: 480px;
-        margin: 100px auto 25px auto;
-        padding: 40px;
-        background: rgba(18, 21, 31, 0.82);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 24px;
-        box-shadow: 0 30px 90px rgba(0,0,0,0.40);
-        text-align: center;
-    }
-
-    .login-title {
-        font-size: 38px;
-        font-weight: 800;
-        margin-bottom: 10px;
-    }
-
     .login-subtitle {
-        color: #929aaa;
-        margin-bottom: 28px;
-    }
-
-    .pipeline {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-top: 20px;
-    }
-
-    .pipeline-item {
-        padding: 10px 14px;
-        border-radius: 10px;
-        background: rgba(255,255,255,0.045);
-        border: 1px solid rgba(255,255,255,0.07);
-        color: #c9cfda;
-        font-size: 12px;
-        font-weight: 600;
-    }
-
-    .pipeline-arrow {
-        color: #626b7c;
+        text-align: center;
+        color: #8e97a9;
         font-size: 14px;
+        letter-spacing: 1.5px;
+        margin-bottom: 30px;
     }
+
+    .login-divider {
+        width: 55px;
+        height: 3px;
+        margin: 0 auto 30px auto;
+        border-radius: 99px;
+
+        background:
+            linear-gradient(
+                90deg,
+                #766bff,
+                #54c9ff
+            );
+    }
+
+
+    /* =========================
+       HERO
+       ========================= */
+
+    .hero-space {
+        height: 10px;
+    }
+
+    .hero-kicker {
+        color: #9c94ff;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 2.5px;
+        margin-bottom: 14px;
+    }
+
+    .hero-title {
+        font-size: clamp(44px, 6vw, 76px);
+        line-height: 0.98;
+        font-weight: 850;
+        letter-spacing: -3.5px;
+        margin-bottom: 20px;
+
+        background:
+            linear-gradient(
+                100deg,
+                #ffffff 0%,
+                #d8d5ff 48%,
+                #8dd7ff 100%
+            );
+
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .hero-description {
+        max-width: 760px;
+        color: #929bad;
+        font-size: 17px;
+        line-height: 1.7;
+        margin-bottom: 35px;
+    }
+
+
+    /* =========================
+       CARDS
+       ========================= */
+
+    .card-title {
+        font-size: 17px;
+        font-weight: 750;
+        margin-bottom: 18px;
+        color: #f3f5fa;
+    }
+
+    .mini-label {
+        color: #777f90;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.4px;
+        margin-bottom: 4px;
+    }
+
+    .mini-value {
+        color: #eef1f7;
+        font-size: 14px;
+        font-weight: 650;
+        margin-bottom: 16px;
+    }
+
+
+    /* =========================
+       STATUS
+       ========================= */
+
+    .status-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background: #63e6a0;
+        box-shadow: 0 0 12px rgba(99,230,160,0.65);
+    }
+
+    .status-dot-warning {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background: #ffc766;
+        box-shadow: 0 0 12px rgba(255,199,102,0.45);
+    }
+
+
+    /* =========================
+       TABS
+       ========================= */
+
+    button[data-baseweb="tab"] {
+        font-weight: 650;
+    }
+
+
+    /* =========================
+       BUTTONS
+       ========================= */
+
+    .stButton > button {
+        min-height: 44px;
+        border-radius: 12px;
+        font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+
+    /* =========================
+       INPUTS
+       ========================= */
+
+    div[data-baseweb="input"],
+    div[data-baseweb="textarea"] {
+        border-radius: 12px;
+    }
+
+
+    /* =========================
+       FOOTER
+       ========================= */
 
     .footer {
         text-align: center;
-        color: #555d6c;
-        font-size: 12px;
-        padding-top: 30px;
-    }
-
-    .generated-image {
-        border-radius: 18px;
-        overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .engine-box {
-        background: rgba(17, 20, 29, 0.75);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 18px;
-        padding: 20px;
+        color: #4f5766;
+        font-size: 11px;
+        padding-top: 25px;
+        letter-spacing: 0.5px;
     }
 
     </style>
@@ -250,6 +313,7 @@ HF_API_KEY = get_hf_key()
 
 
 def improve_prompt_with_ai(user_prompt):
+
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
 
@@ -273,7 +337,7 @@ Improve:
 - realism
 - visual details
 
-Do not add unrelated characters or concepts.
+Do not add unrelated concepts.
 
 Return ONLY the final image prompt.
 Do not explain your answer.
@@ -301,6 +365,7 @@ Do not explain your answer.
     }
 
     try:
+
         response = requests.post(
             CHAT_URL,
             headers=headers,
@@ -309,9 +374,10 @@ Do not explain your answer.
         )
 
         if response.status_code != 200:
-            return None, (
+            return (
+                None,
                 f"Prompt AI HTTP {response.status_code}: "
-                f"{response.text[:500]}"
+                f"{response.text[:500]}",
             )
 
         data = response.json()
@@ -321,7 +387,13 @@ Do not explain your answer.
         if not choices:
             return None, "Prompt AI boş cevap döndürdü."
 
-        content = choices[0].get("message", {}).get("content", "")
+        content = choices[0].get(
+            "message",
+            {}
+        ).get(
+            "content",
+            ""
+        )
 
         if not content:
             return None, "Prompt AI metin döndürmedi."
@@ -333,6 +405,7 @@ Do not explain your answer.
 
 
 def get_dimensions(aspect_ratio):
+
     if aspect_ratio == "1:1 Kare":
         return 768, 768
 
@@ -346,6 +419,7 @@ def get_dimensions(aspect_ratio):
 
 
 def generate_image(prompt, width, height):
+
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
 
@@ -353,6 +427,7 @@ def generate_image(prompt, width, height):
         return None, "huggingface_hub paketi bulunamadı."
 
     try:
+
         client = InferenceClient(
             provider="auto",
             api_key=HF_API_KEY,
@@ -372,27 +447,36 @@ def generate_image(prompt, width, height):
 
 
 # ============================================================
-# LOGIN
+# LOGIN SCREEN
 # ============================================================
 
 def login_screen():
 
     st.markdown(
-        """
-        <div class="login-box">
-            <div class="login-title">
-                KOGCE AI Studio
-            </div>
-
-            <div class="login-subtitle">
-                AI Creative Workspace
-            </div>
-        </div>
-        """,
+        '<div class="login-space"></div>',
         unsafe_allow_html=True,
     )
 
-    left, center, right = st.columns([1, 2, 1])
+    st.markdown(
+        "KOGCE AI Studio",
+        help="AI Creative Workspace",
+    )
+
+    st.markdown(
+        '<div class="login-subtitle">'
+        'AI Creative Workspace'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="login-divider"></div>',
+        unsafe_allow_html=True,
+    )
+
+    left, center, right = st.columns(
+        [1.1, 1.8, 1.1]
+    )
 
     with center:
 
@@ -400,6 +484,7 @@ def login_screen():
             "Uygulama şifresi",
             type="password",
             placeholder="Şifrenizi girin",
+            label_visibility="visible",
         )
 
         if st.button(
@@ -409,16 +494,21 @@ def login_screen():
         ):
 
             if password == APP_PASSWORD:
+
                 st.session_state.authenticated = True
                 st.rerun()
 
             else:
+
                 st.error("Şifre yanlış.")
 
-        st.caption("KOGCE AI Studio")
+        st.caption(
+            "KOGCE AI Studio"
+        )
 
 
 if not st.session_state.authenticated:
+
     login_screen()
     st.stop()
 
@@ -430,54 +520,48 @@ if not st.session_state.authenticated:
 with st.sidebar:
 
     st.markdown(
-        """
-        <div style="
-            font-size:24px;
-            font-weight:800;
-            margin-bottom:5px;
-        ">
-            KOGCE AI
-        </div>
-
-        <div style="
-            color:#7f8899;
-            font-size:12px;
-            margin-bottom:25px;
-        ">
-            Creative Workspace
-        </div>
-        """,
-        unsafe_allow_html=True,
+        "## KOGCE AI"
     )
 
-    st.markdown("### Sistem")
+    st.caption(
+        "Creative Workspace"
+    )
+
+    st.divider()
+
+    st.markdown(
+        "### Sistem"
+    )
 
     if HF_API_KEY:
-        st.success("HF API: Aktif")
+        st.success("HF API aktif")
     else:
-        st.error("HF API: Eksik")
+        st.error("HF API eksik")
 
-    st.markdown("### Motorlar")
+    st.markdown(
+        "### Motorlar"
+    )
 
     st.caption("Prompt AI")
     st.write("GPT OSS")
 
-    st.caption("Görsel Motoru")
+    st.caption("Görsel")
     st.write("FLUX.1-schnell")
 
-    st.caption("Video Motoru")
-    st.write("Bağlanacak")
+    st.caption("Video")
+    st.write("Beklemede")
 
-    st.markdown("---")
+    st.divider()
 
     st.caption(
-        f"Bu oturumda: {len(st.session_state.history)} görsel"
+        f"{len(st.session_state.history)} görsel oluşturuldu"
     )
 
     if st.button(
         "Çıkış Yap",
         use_container_width=True,
     ):
+
         st.session_state.authenticated = False
         st.rerun()
 
@@ -487,23 +571,25 @@ with st.sidebar:
 # ============================================================
 
 st.markdown(
+    '<div class="hero-space"></div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    '<div class="hero-kicker">AI CREATIVE WORKSPACE</div>',
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    "KOGCE AI Studio"
+)
+
+st.markdown(
     """
-    <div class="hero-wrapper">
-
-        <div class="hero-badge">
-            AI CREATIVE WORKSPACE
-        </div>
-
-        <div class="hero-title">
-            KOGCE AI Studio
-        </div>
-
-        <div class="hero-subtitle">
-            Fikirden profesyonel görsele.<br>
-            AI Prompt Robotu kısa fikrini analiz eder,
-            geliştirir ve FLUX görüntü motoruna gönderir.
-        </div>
-
+    <div class="hero-description">
+        Fikirden profesyonel görsele.<br>
+        AI Prompt Robotu kısa fikrini analiz eder,
+        geliştirir ve FLUX görüntü motoruna gönderir.
     </div>
     """,
     unsafe_allow_html=True,
@@ -525,43 +611,38 @@ tab_create, tab_video, tab_gallery, tab_system = st.tabs(
 
 
 # ============================================================
-# CREATE IMAGE
+# IMAGE CREATION
 # ============================================================
 
 with tab_create:
 
     st.markdown(
-        '<div class="section-title">Görsel Oluştur</div>',
-        unsafe_allow_html=True,
+        "### Görsel Oluştur"
     )
 
-    st.markdown(
-        """
-        <div class="section-description">
-            Kısa fikrini gir. İstersen AI Prompt Robotu fikrini
-            profesyonel FLUX promptuna dönüştürsün.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.caption(
+        "Kısa fikrini gir. AI Prompt Robotu fikrini "
+        "profesyonel bir FLUX promptuna dönüştürebilir."
     )
 
-    col_left, col_right = st.columns(
+    left_col, right_col = st.columns(
         [1.15, 0.85],
         gap="large",
     )
 
     # --------------------------------------------------------
-    # SOL TARAF
+    # PROMPT
     # --------------------------------------------------------
 
-    with col_left:
+    with left_col:
 
         user_prompt = st.text_area(
             "Fikir / Prompt",
             height=180,
             placeholder=(
                 "Örnek: "
-                "A futuristic sports car driving through a neon city at night"
+                "A futuristic sports car driving "
+                "through a neon city at night"
             ),
         )
 
@@ -571,9 +652,13 @@ with tab_create:
         )
 
         if use_ai_boost:
-            st.success("AI Prompt Robotu: ON")
+            st.success(
+                "AI Prompt Robotu aktif"
+            )
         else:
-            st.info("AI Prompt Robotu: OFF")
+            st.info(
+                "AI Prompt Robotu kapalı"
+            )
 
         aspect_ratio = st.selectbox(
             "Görüntü oranı",
@@ -592,83 +677,35 @@ with tab_create:
 
 
     # --------------------------------------------------------
-    # SAĞ TARAF
+    # ENGINE STATUS
     # --------------------------------------------------------
 
-    with col_right:
+    with right_col:
 
         st.markdown(
-            '<div class="engine-box">',
-            unsafe_allow_html=True,
+            "#### Üretim Sistemi"
         )
 
-        st.markdown(
-            """
-            <div style="
-                font-size:17px;
-                font-weight:750;
-                margin-bottom:15px;
-            ">
-                Üretim Sistemi
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.caption(
+            "Aktif motorlar ve bağlantı durumu"
         )
 
-        st.markdown(
-            """
-            <div class="status-card">
-                <div class="status-title">
-                    Prompt AI
-                </div>
-
-                <div class="status-value online">
-                    Hazır
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.success(
+            "●  Prompt AI — Hazır"
         )
 
-        st.markdown(
-            """
-            <div class="status-card">
-                <div class="status-title">
-                    FLUX.1-schnell
-                </div>
-
-                <div class="status-value online">
-                    Hazır
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.success(
+            "●  FLUX.1-schnell — Hazır"
         )
 
-        st.markdown(
-            """
-            <div class="status-card">
-                <div class="status-title">
-                    Video Engine
-                </div>
-
-                <div class="status-value warning">
-                    Henüz bağlı değil
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True,
+        st.warning(
+            "●  Video Engine — Henüz bağlı değil"
         )
 
 
-    # ========================================================
-    # GENERATION
-    # ========================================================
+    # --------------------------------------------------------
+    # GENERATE
+    # --------------------------------------------------------
 
     if generate_button:
 
@@ -689,6 +726,10 @@ with tab_create:
 
             final_prompt = user_prompt.strip()
 
+            # -----------------------------------------------
+            # AI PROMPT
+            # -----------------------------------------------
+
             if use_ai_boost:
 
                 with st.spinner(
@@ -702,16 +743,24 @@ with tab_create:
                     )
 
                 if prompt_error:
+
                     st.error(prompt_error)
                     st.stop()
 
                 final_prompt = enhanced_prompt
 
                 st.markdown(
-                    "### AI tarafından geliştirilen prompt"
+                    "#### Geliştirilmiş Prompt"
                 )
 
-                st.info(final_prompt)
+                st.info(
+                    final_prompt
+                )
+
+
+            # -----------------------------------------------
+            # IMAGE
+            # -----------------------------------------------
 
             width, height = get_dimensions(
                 aspect_ratio
@@ -737,19 +786,9 @@ with tab_create:
                     "Görsel başarıyla oluşturuldu."
                 )
 
-                st.markdown(
-                    '<div class="generated-image">',
-                    unsafe_allow_html=True,
-                )
-
                 st.image(
                     image,
                     use_container_width=True,
-                )
-
-                st.markdown(
-                    "</div>",
-                    unsafe_allow_html=True,
                 )
 
                 image_bytes = io.BytesIO()
@@ -796,163 +835,54 @@ with tab_create:
 
 
 # ============================================================
-# VIDEO STATUS
+# VIDEO
 # ============================================================
 
 with tab_video:
 
     st.markdown(
-        '<div class="section-title">Video Üretim Durumu</div>',
-        unsafe_allow_html=True,
+        "### Video Üretim Durumu"
     )
 
-    st.markdown(
-        """
-        <div class="section-description">
-            Video otomasyonunun mevcut bağlantı durumunu gösterir.
-            Bu bölüm henüz video üretimini çalıştırmaz.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.caption(
+        "Video otomasyonunun mevcut bağlantı durumunu gösterir."
     )
 
-    c1, c2, c3 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
-    with c1:
+    with col1:
 
-        st.markdown(
-            """
-            <div class="status-card">
-
-                <div class="status-title">
-                    AI Prompt Robotu
-                </div>
-
-                <div class="status-value online">
-                    AKTİF
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.success(
+            "AI Prompt Robotu\n\nAKTİF"
         )
 
-    with c2:
+    with col2:
 
-        st.markdown(
-            """
-            <div class="status-card">
-
-                <div class="status-title">
-                    FLUX Görsel Motoru
-                </div>
-
-                <div class="status-value online">
-                    AKTİF
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.success(
+            "FLUX Görsel Motoru\n\nAKTİF"
         )
 
-    with c3:
+    with col3:
 
-        st.markdown(
-            """
-            <div class="status-card">
-
-                <div class="status-title">
-                    Video Motoru
-                </div>
-
-                <div class="status-value warning">
-                    BEKLEMEDE
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.warning(
+            "Video Motoru\n\nBEKLEMEDE"
         )
+
+    st.divider()
 
     st.markdown(
         "### Planlanan Video Pipeline"
     )
 
-    st.markdown(
-        """
-        <div class="pipeline">
-
-            <div class="pipeline-item">
-                IDEA
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                AI PROMPT ROBOT
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                SCENE PLANNER
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                IMAGE GENERATION
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                VIDEO GENERATION
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                VOICE / AUDIO
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                VIDEO ASSEMBLY
-            </div>
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-            <div class="pipeline-item">
-                MP4
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.write(
+        "IDEA  →  AI PROMPT ROBOT  →  SCENE PLANNER  →  "
+        "IMAGE GENERATION  →  VIDEO GENERATION  →  "
+        "VOICE / AUDIO  →  VIDEO ASSEMBLY  →  MP4"
     )
-
-    st.markdown("---")
 
     st.info(
         "Şu anda görsel üretim sistemi aktif. "
-        "Video motoru henüz bu uygulamaya bağlanmadı."
+        "Video motoru henüz uygulamaya bağlanmadı."
     )
 
 
@@ -963,23 +893,17 @@ with tab_video:
 with tab_gallery:
 
     st.markdown(
-        '<div class="section-title">Galeri</div>',
-        unsafe_allow_html=True,
+        "### Galeri"
     )
 
-    st.markdown(
-        """
-        <div class="section-description">
-            Bu oturum sırasında oluşturduğun görseller.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.caption(
+        "Bu oturum sırasında oluşturulan görseller."
     )
 
     if not st.session_state.history:
 
         st.info(
-            "Henüz bu oturumda oluşturulmuş bir görsel yok."
+            "Henüz oluşturulmuş bir görsel yok."
         )
 
     else:
@@ -988,7 +912,7 @@ with tab_gallery:
             st.session_state.history
         ):
 
-            st.markdown("---")
+            st.divider()
 
             image_col, info_col = st.columns(
                 [0.55, 0.45],
@@ -1005,7 +929,7 @@ with tab_gallery:
             with info_col:
 
                 st.markdown(
-                    f"### Görsel #{index + 1}"
+                    f"#### Görsel #{index + 1}"
                 )
 
                 st.caption(
@@ -1041,16 +965,12 @@ with tab_gallery:
 
                 image_bytes.seek(0)
 
-                gallery_filename = (
-                    "kogce_gallery_"
-                    + str(index + 1)
-                    + ".png"
-                )
-
                 st.download_button(
                     "⬇️ Görseli indir",
                     data=image_bytes.getvalue(),
-                    file_name=gallery_filename,
+                    file_name=(
+                        f"kogce_gallery_{index + 1}.png"
+                    ),
                     mime="image/png",
                     key=f"gallery_download_{index}",
                     use_container_width=True,
@@ -1064,51 +984,48 @@ with tab_gallery:
 with tab_system:
 
     st.markdown(
-        '<div class="section-title">Sistem</div>',
-        unsafe_allow_html=True,
+        "### Sistem"
     )
 
-    st.markdown(
-        """
-        <div class="section-description">
-            KOGCE AI Studio bağlantı ve motor bilgileri.
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.caption(
+        "KOGCE AI Studio bağlantı ve motor bilgileri."
     )
 
-    system_col1, system_col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-    with system_col1:
+    with col1:
 
         st.markdown(
-            "### API Durumu"
+            "#### API Durumu"
         )
 
         if HF_API_KEY:
+
             st.success(
-                "Hugging Face API: AKTİF"
-            )
-        else:
-            st.error(
-                "Hugging Face API: BULUNAMADI"
+                "Hugging Face API — AKTİF"
             )
 
-    with system_col2:
+        else:
+
+            st.error(
+                "Hugging Face API — BULUNAMADI"
+            )
+
+    with col2:
 
         st.markdown(
-            "### Modeller"
+            "#### Modeller"
         )
 
         st.write(
-            "Görsel Modeli: FLUX.1-schnell"
+            "Görsel: FLUX.1-schnell"
         )
 
         st.write(
-            "Prompt Modeli: GPT OSS 120B"
+            "Prompt: GPT OSS 120B"
         )
 
-    st.markdown("---")
+    st.divider()
 
     st.metric(
         "Bu oturumda üretilen görsel",
@@ -1120,13 +1037,13 @@ with tab_system:
 # FOOTER
 # ============================================================
 
-st.markdown("---")
+st.markdown(
+    "---"
+)
 
 st.markdown(
-    """
-    <div class="footer">
-        KOGCE AI Studio • AI Creative Workspace
-    </div>
-    """,
+    '<div class="footer">'
+    'KOGCE AI Studio • AI Creative Workspace'
+    '</div>',
     unsafe_allow_html=True,
 )
