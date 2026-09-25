@@ -1,4 +1,3 @@
-```python
 import streamlit as st
 import requests
 import io
@@ -24,18 +23,15 @@ st.set_page_config(
 
 
 # ============================================================
-# CONSTANTS
+# MODELS / API
 # ============================================================
 
 IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
-
-# Hugging Face OpenAI-compatible router
-CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
-
-# Prompt enhancement model
 PROMPT_MODEL = "openai/gpt-oss-120b"
 
-# Optional password
+CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
+
+# ŞİFRE BURADA
 APP_PASSWORD = "1234"
 
 
@@ -51,16 +47,12 @@ if "authenticated" not in st.session_state:
 
 
 # ============================================================
-# CUSTOM CSS
+# CSS
 # ============================================================
 
 st.markdown(
     """
     <style>
-
-    /* --------------------------------------------------------
-       GLOBAL
-    -------------------------------------------------------- */
 
     .stApp {
         background:
@@ -87,10 +79,6 @@ st.markdown(
         padding-bottom: 4rem;
     }
 
-    /* --------------------------------------------------------
-       TEXT
-    -------------------------------------------------------- */
-
     h1, h2, h3 {
         letter-spacing: -0.03em;
     }
@@ -99,12 +87,8 @@ st.markdown(
         color: #d7d9e0;
     }
 
-    /* --------------------------------------------------------
-       HERO
-    -------------------------------------------------------- */
-
     .hero {
-        padding: 35px 35px 30px 35px;
+        padding: 35px;
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 24px;
         background:
@@ -113,8 +97,7 @@ st.markdown(
                 rgba(20, 22, 34, 0.96),
                 rgba(10, 11, 18, 0.96)
             );
-        box-shadow:
-            0 20px 70px rgba(0,0,0,0.30);
+        box-shadow: 0 20px 70px rgba(0,0,0,0.30);
         margin-bottom: 25px;
     }
 
@@ -145,10 +128,6 @@ st.markdown(
         margin-bottom: 18px;
     }
 
-    /* --------------------------------------------------------
-       CARDS
-    -------------------------------------------------------- */
-
     .glass-card {
         border: 1px solid rgba(255,255,255,0.07);
         background: rgba(15, 17, 26, 0.76);
@@ -170,10 +149,6 @@ st.markdown(
         margin-bottom: 18px;
     }
 
-    /* --------------------------------------------------------
-       BUTTONS
-    -------------------------------------------------------- */
-
     .stButton > button {
         border-radius: 12px;
         border: 1px solid rgba(255,255,255,0.09);
@@ -181,18 +156,10 @@ st.markdown(
         font-weight: 700;
     }
 
-    /* --------------------------------------------------------
-       INPUTS
-    -------------------------------------------------------- */
-
     textarea,
     input {
         border-radius: 12px !important;
     }
-
-    /* --------------------------------------------------------
-       SIDEBAR
-    -------------------------------------------------------- */
 
     section[data-testid="stSidebar"] {
         background:
@@ -203,10 +170,6 @@ st.markdown(
             );
         border-right: 1px solid rgba(255,255,255,0.06);
     }
-
-    /* --------------------------------------------------------
-       STATUS
-    -------------------------------------------------------- */
 
     .status-box {
         border: 1px solid rgba(255,255,255,0.07);
@@ -232,17 +195,9 @@ st.markdown(
         font-weight: 700;
     }
 
-    /* --------------------------------------------------------
-       IMAGE
-    -------------------------------------------------------- */
-
     img {
         border-radius: 16px;
     }
-
-    /* --------------------------------------------------------
-       DIVIDER
-    -------------------------------------------------------- */
 
     hr {
         border-color: rgba(255,255,255,0.06);
@@ -255,13 +210,10 @@ st.markdown(
 
 
 # ============================================================
-# HELPERS
+# HUGGING FACE KEY
 # ============================================================
 
 def get_hf_key():
-    """
-    Reads HF_API_KEY from Streamlit secrets.
-    """
     try:
         return st.secrets["HF_API_KEY"]
     except Exception:
@@ -272,10 +224,11 @@ HF_API_KEY = get_hf_key()
 
 
 # ============================================================
-# AUTH
+# LOGIN
 # ============================================================
 
 def login_screen():
+
     st.markdown(
         """
         <div class="hero">
@@ -293,6 +246,7 @@ def login_screen():
     col1, col2, col3 = st.columns([1, 1.2, 1])
 
     with col2:
+
         st.markdown("### Giriş")
 
         password = st.text_input(
@@ -305,6 +259,7 @@ def login_screen():
             "Studio'ya Gir",
             use_container_width=True,
         ):
+
             if password == APP_PASSWORD:
                 st.session_state.authenticated = True
                 st.rerun()
@@ -317,10 +272,6 @@ def login_screen():
 # ============================================================
 
 def improve_prompt_with_ai(original_prompt):
-    """
-    Converts a short Turkish/simple prompt into a detailed
-    professional English image-generation prompt.
-    """
 
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
@@ -333,36 +284,27 @@ def improve_prompt_with_ai(original_prompt):
     system_prompt = """
 You are a professional image-generation prompt engineer.
 
-Your task is to transform the user's short Turkish or English idea
-into ONE detailed, production-ready English prompt for a modern
-text-to-image model.
+Transform the user's short Turkish or English idea into ONE
+detailed, production-ready English image-generation prompt.
 
 Rules:
 
-1. Preserve the user's main subject.
-2. Preserve the user's main action.
-3. Do not change the intended meaning.
+1. Preserve the main subject.
+2. Preserve the main action.
+3. Preserve the intended meaning.
 4. Do not invent major story elements.
-5. Translate Turkish naturally into English when necessary.
+5. Translate Turkish naturally into English when needed.
 6. Improve visual specificity.
-7. Describe:
-   - subject appearance
-   - environment
-   - composition
-   - camera perspective
-   - lighting
-   - atmosphere
-   - materials and textures
-   - depth
-   - color relationships
-   - photographic/cinematic qualities when appropriate
-8. Make the image visually coherent.
+7. Describe subject appearance, environment, composition,
+   camera perspective, lighting, atmosphere, materials,
+   textures, depth and visual quality.
+8. Make the scene visually coherent.
 9. Avoid unnecessary repetition.
-10. Do not write explanations.
+10. Do not explain your work.
 11. Do not use bullet points.
 12. Return ONLY the final English image prompt.
 
-The prompt should work directly with a modern image generation model.
+The result must be directly usable by an image generation model.
 """
 
     payload = {
@@ -382,6 +324,7 @@ The prompt should work directly with a modern image generation model.
     }
 
     try:
+
         response = requests.post(
             CHAT_URL,
             headers=headers,
@@ -404,6 +347,7 @@ The prompt should work directly with a modern image generation model.
             return None, "Prompt AI boş cevap döndürdü."
 
         message = choices[0].get("message", {})
+
         content = message.get("content", "")
 
         if isinstance(content, list):
@@ -432,10 +376,6 @@ The prompt should work directly with a modern image generation model.
 # ============================================================
 
 def generate_image(prompt, width, height):
-    """
-    Generates an image with FLUX.1-schnell through Hugging Face
-    Inference Providers.
-    """
 
     if not HF_API_KEY:
         return None, "HF_API_KEY bulunamadı."
@@ -448,6 +388,7 @@ def generate_image(prompt, width, height):
         )
 
     try:
+
         client = InferenceClient(
             provider="auto",
             api_key=HF_API_KEY,
@@ -470,10 +411,11 @@ def generate_image(prompt, width, height):
 
 
 # ============================================================
-# SIZE
+# IMAGE DIMENSIONS
 # ============================================================
 
 def get_dimensions(aspect):
+
     if aspect == "1:1 Kare":
         return 768, 768
 
@@ -487,11 +429,13 @@ def get_dimensions(aspect):
 
 
 # ============================================================
-# MAIN APP
+# LOGIN CHECK
 # ============================================================
 
 if not st.session_state.authenticated:
+
     login_screen()
+
     st.stop()
 
 
@@ -510,16 +454,23 @@ with st.sidebar:
     st.markdown("### Sistem")
 
     if HF_API_KEY:
+
         st.markdown(
             '<div class="status-box">'
-            '<span class="status-green">● Hugging Face bağlantısı hazır</span>'
+            '<span class="status-green">'
+            '● Hugging Face bağlantısı hazır'
+            '</span>'
             '</div>',
             unsafe_allow_html=True,
         )
+
     else:
+
         st.markdown(
             '<div class="status-box">'
-            '<span class="status-yellow">● HF_API_KEY bulunamadı</span>'
+            '<span class="status-yellow">'
+            '● HF_API_KEY bulunamadı'
+            '</span>'
             '</div>',
             unsafe_allow_html=True,
         )
@@ -530,17 +481,23 @@ with st.sidebar:
         """
         <div class="status-box">
             <b>Görsel</b><br>
-            <span class="status-green">FLUX.1-schnell</span>
+            <span class="status-green">
+                FLUX.1-schnell
+            </span>
         </div>
 
         <div class="status-box">
             <b>Prompt AI</b><br>
-            <span class="status-green">Hugging Face Router</span>
+            <span class="status-green">
+                Hugging Face Router
+            </span>
         </div>
 
         <div class="status-box">
             <b>Video</b><br>
-            <span class="status-gray">Henüz bağlı değil</span>
+            <span class="status-gray">
+                Henüz bağlı değil
+            </span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -554,7 +511,9 @@ with st.sidebar:
         "Çıkış Yap",
         use_container_width=True,
     ):
+
         st.session_state.authenticated = False
+
         st.rerun()
 
     st.caption(
@@ -569,7 +528,10 @@ with st.sidebar:
 st.markdown(
     """
     <div class="hero">
-        <div class="hero-badge">AI CREATIVE WORKSPACE</div>
+
+        <div class="hero-badge">
+            AI CREATIVE WORKSPACE
+        </div>
 
         <div class="hero-title">
             KOGCE AI Studio
@@ -577,9 +539,10 @@ st.markdown(
 
         <div class="hero-subtitle">
             Fikirden profesyonel görsele.
-            İstersen AI Prompt Robotu kısa fikrini analiz eder,
+            AI Prompt Robotu kısa fikrini analiz eder,
             geliştirir ve FLUX görüntü motoruna gönderir.
         </div>
+
     </div>
     """,
     unsafe_allow_html=True,
@@ -609,14 +572,16 @@ with tab_create:
     st.markdown(
         """
         <div class="glass-card">
+
             <div class="section-title">
                 Görsel Oluştur
             </div>
 
             <div class="section-description">
-                Fikrini yaz. İstersen AI Prompt Robotu bu fikri
-                profesyonel bir görsel üretim promptuna dönüştürsün.
+                Fikrini yaz. AI Prompt Robotu kısa fikrini
+                profesyonel görsel üretim promptuna dönüştürür.
             </div>
+
         </div>
         """,
         unsafe_allow_html=True,
@@ -634,6 +599,7 @@ with tab_create:
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         aspect = st.selectbox(
             "Görüntü oranı",
             [
@@ -644,12 +610,14 @@ with tab_create:
         )
 
     with col2:
+
         use_ai_boost = st.toggle(
             "🤖 AI Prompt Robotu",
             value=True,
         )
 
     with col3:
+
         st.markdown("###")
 
         if use_ai_boost:
@@ -668,14 +636,20 @@ with tab_create:
     if generate_button:
 
         if not prompt.strip():
-            st.warning("Önce bir prompt yaz.")
+
+            st.warning(
+                "Önce bir prompt yaz."
+            )
+
             st.stop()
 
         if not HF_API_KEY:
+
             st.error(
                 "HF_API_KEY bulunamadı. "
                 "Streamlit Secrets bölümünü kontrol et."
             )
+
             st.stop()
 
         final_prompt = prompt.strip()
@@ -689,12 +663,17 @@ with tab_create:
             with st.spinner(
                 "AI Prompt Robotu fikrini geliştiriyor..."
             ):
+
                 enhanced_prompt, prompt_error = (
-                    improve_prompt_with_ai(prompt.strip())
+                    improve_prompt_with_ai(
+                        prompt.strip()
+                    )
                 )
 
             if prompt_error:
+
                 st.error(prompt_error)
+
                 st.stop()
 
             final_prompt = enhanced_prompt
@@ -703,27 +682,37 @@ with tab_create:
                 "🤖 AI'nın geliştirdiği promptu göster",
                 expanded=True,
             ):
-                st.markdown("**Orijinal fikir**")
+
+                st.markdown(
+                    "**Orijinal fikir**"
+                )
+
                 st.code(
                     prompt.strip(),
                     language="text",
                 )
 
-                st.markdown("**Geliştirilmiş İngilizce prompt**")
+                st.markdown(
+                    "**Geliştirilmiş İngilizce prompt**"
+                )
+
                 st.code(
                     final_prompt,
                     language="text",
                 )
 
         # ----------------------------------------------------
-        # IMAGE
+        # IMAGE GENERATION
         # ----------------------------------------------------
 
-        width, height = get_dimensions(aspect)
+        width, height = get_dimensions(
+            aspect
+        )
 
         with st.spinner(
             "FLUX görseli oluşturuyor..."
         ):
+
             image, image_error = generate_image(
                 final_prompt,
                 width,
@@ -731,14 +720,18 @@ with tab_create:
             )
 
         if image_error:
+
             st.error(image_error)
+
             st.stop()
 
         # ----------------------------------------------------
-        # DISPLAY
+        # DISPLAY IMAGE
         # ----------------------------------------------------
 
-        st.success("Görsel oluşturuldu.")
+        st.success(
+            "Görsel oluşturuldu."
+        )
 
         st.image(
             image,
@@ -780,7 +773,11 @@ with tab_create:
             label="⬇️ PNG olarak indir",
             data=image_buffer,
             file_name=(
-                f"kogce_ai_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                "kogce_ai_"
+                + datetime.now().strftime(
+                    "%Y%m%d_%H%M%S"
+                )
+                + ".png"
             ),
             mime="image/png",
             use_container_width=True,
@@ -796,23 +793,20 @@ with tab_video:
     st.markdown(
         """
         <div class="glass-card">
+
             <div class="section-title">
                 Video Üretim Durumu
             </div>
 
             <div class="section-description">
-                KOGCE AI Studio'nun sonraki üretim katmanı.
-                Şu anda bu panel video motorunun durumunu ve
-                planlanan üretim zincirini gösterir.
+                KOGCE AI Studio video üretim pipeline'ının
+                mevcut durumunu gösterir.
             </div>
+
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    # --------------------------------------------------------
-    # CURRENT STATUS
-    # --------------------------------------------------------
 
     col1, col2 = st.columns(2)
 
@@ -822,30 +816,33 @@ with tab_video:
             """
             <div class="glass-card">
 
-            <div class="section-title">
-                Mevcut Durum
-            </div>
+                <div class="section-title">
+                    Mevcut Durum
+                </div>
 
-            <br>
+                <br>
 
-            <b>Prompt AI</b><br>
-            <span class="status-green">
-                ● Aktif
-            </span>
+                <b>Prompt AI</b><br>
 
-            <br><br>
+                <span class="status-green">
+                    ● Aktif
+                </span>
 
-            <b>Görsel Motoru</b><br>
-            <span class="status-green">
-                ● Aktif — FLUX.1-schnell
-            </span>
+                <br><br>
 
-            <br><br>
+                <b>Görsel Motoru</b><br>
 
-            <b>Video Motoru</b><br>
-            <span class="status-gray">
-                ● Bağlı değil
-            </span>
+                <span class="status-green">
+                    ● Aktif — FLUX.1-schnell
+                </span>
+
+                <br><br>
+
+                <b>Video Motoru</b><br>
+
+                <span class="status-gray">
+                    ● Bağlı değil
+                </span>
 
             </div>
             """,
@@ -858,51 +855,55 @@ with tab_video:
             """
             <div class="glass-card">
 
-            <div class="section-title">
-                Planlanan Video Pipeline
-            </div>
+                <div class="section-title">
+                    Planlanan Video Pipeline
+                </div>
 
-            <br>
+                <br>
 
-            <b>1.</b> Fikir / Prompt
-            <br><br>
+                <b>1.</b> Fikir / Prompt
 
-            <b>2.</b> AI Prompt Robotu
-            <br><br>
+                <br><br>
 
-            <b>3.</b> Sahne tasarımı
-            <br><br>
+                <b>2.</b> AI Prompt Robotu
 
-            <b>4.</b> Görsel üretimi
-            <br><br>
+                <br><br>
 
-            <b>5.</b> Video üretim motoru
-            <br><br>
+                <b>3.</b> Sahne tasarımı
 
-            <b>6.</b> Seslendirme / Ses
-            <br><br>
+                <br><br>
 
-            <b>7.</b> MP4 oluşturma
-            <br><br>
+                <b>4.</b> Görsel üretimi
 
-            <b>8.</b> Galeri / çıktı
+                <br><br>
+
+                <b>5.</b> Video üretim motoru
+
+                <br><br>
+
+                <b>6.</b> Seslendirme / Ses
+
+                <br><br>
+
+                <b>7.</b> MP4 oluşturma
+
+                <br><br>
+
+                <b>8.</b> Galeri / çıktı
 
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # --------------------------------------------------------
-    # IMPORTANT NOTE
-    # --------------------------------------------------------
-
     st.warning(
         "Video motoru bu sürümde henüz bağlı değil. "
-        "Bu nedenle burada sahte bir 'video oluşturuldu' "
-        "sonucu göstermiyorum."
+        "Bu nedenle sahte video üretim sonucu gösterilmiyor."
     )
 
-    st.markdown("### Video sistemi için hazır altyapı")
+    st.markdown(
+        "### Video sistemi için hazır altyapı"
+    )
 
     st.code(
         """
@@ -926,8 +927,9 @@ MP4
     )
 
     st.info(
-        "Görsel üretim motoru aktif. Video tarafında ayrıca "
-        "bir video inference sağlayıcısı veya API bağlanması gerekir."
+        "Görsel üretim motoru aktif. "
+        "Video tarafında ayrıca bir video inference "
+        "sağlayıcısı veya API bağlanması gerekir."
     )
 
 
@@ -940,6 +942,7 @@ with tab_gallery:
     st.markdown(
         """
         <div class="glass-card">
+
             <div class="section-title">
                 Galeri
             </div>
@@ -947,6 +950,7 @@ with tab_gallery:
             <div class="section-description">
                 Bu oturum sırasında oluşturulan görseller.
             </div>
+
         </div>
         """,
         unsafe_allow_html=True,
@@ -955,17 +959,26 @@ with tab_gallery:
     if not st.session_state.history:
 
         st.info(
-            "Henüz bu oturumda oluşturulmuş bir görsel yok."
+            "Henüz bu oturumda oluşturulmuş "
+            "bir görsel yok."
         )
 
     else:
 
         for index, item in enumerate(
-            reversed(st.session_state.history)
+            reversed(
+                st.session_state.history
+            )
         ):
 
             st.markdown(
-                f"### Üretim #{len(st.session_state.history) - index}"
+                "### Üretim #"
+                + str(
+                    len(
+                        st.session_state.history
+                    )
+                    - index
+                )
             )
 
             col_image, col_info = st.columns(
@@ -991,7 +1004,9 @@ with tab_gallery:
                     """
                 )
 
-                st.markdown("**Orijinal prompt:**")
+                st.markdown(
+                    "**Orijinal prompt:**"
+                )
 
                 st.code(
                     item["prompt"],
@@ -1019,6 +1034,7 @@ with tab_system:
     st.markdown(
         """
         <div class="glass-card">
+
             <div class="section-title">
                 Sistem
             </div>
@@ -1026,14 +1042,11 @@ with tab_system:
             <div class="section-description">
                 KOGCE AI Studio bağlantı ve motor durumları.
             </div>
+
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    # --------------------------------------------------------
-    # HF KEY
-    # --------------------------------------------------------
 
     if HF_API_KEY:
 
@@ -1062,11 +1075,9 @@ with tab_system:
             """
         )
 
-    # --------------------------------------------------------
-    # MODELS
-    # --------------------------------------------------------
-
-    st.markdown("### Kullanılan modeller")
+    st.markdown(
+        "### Kullanılan modeller"
+    )
 
     st.code(
         f"""
@@ -1080,20 +1091,22 @@ Image Provider:
 Hugging Face Inference Providers
 
 Prompt API:
-Hugging Face Router / OpenAI-compatible API
+Hugging Face Router
         """,
         language="text",
     )
 
-    # --------------------------------------------------------
-    # SESSION
-    # --------------------------------------------------------
-
-    st.markdown("### Oturum")
+    st.markdown(
+        "### Oturum"
+    )
 
     st.write(
-        f"Oluşturulan görsel: "
-        f"**{len(st.session_state.history)}**"
+        "Oluşturulan görsel: "
+        + str(
+            len(
+                st.session_state.history
+            )
+        )
     )
 
     st.caption(
@@ -1112,27 +1125,3 @@ st.markdown("---")
 st.caption(
     "KOGCE AI Studio • AI Creative Workspace"
 )
-```
-
-### `requirements.txt`
-
-Bunu da şu hale getir:
-
-```txt
-streamlit
-requests
-Pillow
-huggingface_hub
-```
-
-### Bu sürümde sekmeler
-
-Artık üstte **4 bölüm** olacak:
-
-1. **Görsel Oluştur**
-
-   * Türkçe/kısa fikir yazıyorsun.
-   * AI Prompt Robotu açıksa fikri profesyonel İngilizce prompta çeviriyor.
-   * Oluşturduğu promptu sana gösteriyor.
-   * Sonra FLUX.1-schnell'e gönderiyor.
-   * Görseli ol
