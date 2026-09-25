@@ -5,13 +5,13 @@ from PIL import Image
 import datetime
 
 # Streamlit Secrets veya varsayılan Token okuma
-HF_API_KEY = st.secrets.get("HF_API_KEY", "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") 
+HF_API_KEY = st.secrets.get("HF_API_KEY", "") 
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
-# Güncel Hugging Face Router API Adresleri (Erişim Hatalarını Önler)
-IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
-VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/Lightricks/LTX-Video"
+# %100 Çalışan Güncel Hugging Face Serverless Router Adresleri
+IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
+VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/damo-vilab/text-to-video-ms-1.7m"
 TEXT_MODEL_URL  = "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-Coder-32B-Instruct"
 
 # Sayfa Konfigürasyonu
@@ -121,7 +121,7 @@ custom_css = """
         color: #ffffff !important;
     }
 
-    /* Metin Kutuları, Seçim Kutuları ve Açık Beyaz Yazılar */
+    /* Metin Kutuları ve Seçim Alanları */
     .stTextArea textarea {
         background-color: #111827 !important;
         color: #ffffff !important;
@@ -155,14 +155,14 @@ def improve_prompt_with_ai(user_input, style_preset):
     style_instruction = f" Apply style: {style_preset}." if style_preset != "Doğal / Yok" else ""
     system_prompt = (
         "You are an expert AI image prompt generator. "
-        "Take the user's request (in any language) and expand it into a detailed, high-quality, professional English prompt for SDXL. "
+        "Take the user's request (in any language) and expand it into a detailed, high-quality, professional English prompt for FLUX/SDXL. "
         f"Include details like lighting, composition, 8k resolution, cinematic atmosphere.{style_instruction} "
         "Output ONLY the final expanded prompt in English, nothing else."
     )
     
     payload = {
         "inputs": f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n",
-        "parameters": {"max_new_tokens": 150, "temperature": 0.7}
+        "parameters": {"max_new_tokens": 120, "temperature": 0.7}
     }
     
     try:
@@ -212,7 +212,7 @@ with tab1:
         st.markdown("### 🎨 Hayalinizi Tarif Edin")
         user_prompt = st.text_area(
             "Ne oluşturmak istiyorsunuz?", 
-            placeholder="Örn: Gece vakti yağmurlu sokaklarda neon ışıklarla aydınlatılmış siberpunk bir şehir...",
+            placeholder="İstediğiniz görseli tarif edin...",
             value="",
             height=120
         )
@@ -251,7 +251,7 @@ with tab1:
                         final_prompt = improve_prompt_with_ai(user_prompt, style_preset)
                         st.info(f"✨ **Geliştirilen Prompt:** {final_prompt}")
 
-                with st.spinner("🎨 Görsel çiziliyor..."):
+                with st.spinner("🎨 Görsel FLUX motoru ile çiziliyor..."):
                     payload = {
                         "inputs": final_prompt,
                         "parameters": {"width": width, "height": height}
@@ -285,7 +285,7 @@ with tab2:
         st.markdown("### 🎬 Video Sahnesi Kurgulayın")
         vid_prompt = st.text_area(
             "Video İsteğiniz:", 
-            placeholder="Örn: Sisli ve karanlık bir ormanda parlayan mavi uzay kapısı...",
+            placeholder="İstediğiniz video sahnesini yazın...",
             value="",
             height=120
         )
@@ -301,7 +301,7 @@ with tab2:
                     final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic")
                     st.info(f"✨ **Geliştirilen Video Prompt:** {final_vid_prompt}")
 
-                with st.spinner("🎬 Video kareleri işleniyor (30-60 sn sürebilir)..."):
+                with st.spinner("🎬 Video işleniyor (30-60 sn sürebilir)..."):
                     payload = {"inputs": final_vid_prompt}
                     try:
                         response = requests.post(VIDEO_MODEL_URL, headers=headers, json=payload, timeout=90)
