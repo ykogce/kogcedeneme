@@ -4,12 +4,12 @@ import io
 from PIL import Image
 import datetime
 
-# Streamlit Secrets veya varsayılan Token okuma
+# Streamlit Secrets veya yedek Token okuma
 HF_API_KEY = st.secrets.get("HF_API_KEY", "") 
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
-# %100 Çalışan Güncel Hugging Face Serverless Router Adresleri
+# Güncel Hugging Face Serverless Router Adresleri
 IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
 VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/damo-vilab/text-to-video-ms-1.7m"
 TEXT_MODEL_URL  = "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-Coder-32B-Instruct"
