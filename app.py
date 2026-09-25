@@ -1,4 +1,5 @@
 import io
+import time
 import requests
 import streamlit as st
 
@@ -17,10 +18,7 @@ IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 
 # Tulpar / ComfyUI backend
 # Daha sonra Cloudflare Tunnel URL'sini buraya bağlayacağız.
-try:
-    LOCAL_BACKEND_URL = st.secrets.get("LOCAL_BACKEND_URL", "").strip()
-except Exception:
-    LOCAL_BACKEND_URL = ""
+LOCAL_BACKEND_URL = st.secrets.get("LOCAL_BACKEND_URL", "").strip()
 
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
@@ -151,6 +149,7 @@ st.markdown(
         overflow: hidden;
         padding: 42px 44px;
         margin-bottom: 28px;
+
         border-radius: 28px;
         border: 1px solid rgba(196, 181, 253, 0.12);
 
@@ -173,6 +172,7 @@ st.markdown(
         height: 360px;
         right: -140px;
         top: -180px;
+
         background: rgba(139, 92, 246, 0.22);
         filter: blur(100px);
         border-radius: 50%;
@@ -284,6 +284,7 @@ st.markdown(
 
     .stButton > button {
         min-height: 46px;
+
         border-radius: 13px;
         border: 1px solid rgba(168, 85, 247, 0.30);
 
@@ -502,13 +503,8 @@ def call_ai(
 
         data = response.json()
 
-        choices = data.get("choices", [])
-
-        if not choices:
-            return None, "AI boş cevap döndürdü."
-
         content = (
-            choices[0]
+            data.get("choices", [{}])[0]
             .get("message", {})
             .get("content", "")
         )
@@ -530,10 +526,6 @@ def call_ai(
     except requests.exceptions.Timeout:
 
         return None, "AI bağlantısı zaman aşımına uğradı."
-
-    except requests.exceptions.RequestException as e:
-
-        return None, f"AI bağlantı hatası: {e}"
 
     except Exception as e:
 
@@ -886,9 +878,11 @@ def generate_character_image(
 ):
 
     """
-    Tulpar + ComfyUI identity/reference pipeline endpointidir.
+    Bu endpoint Tulpar + ComfyUI identity/reference pipeline
+    kurulduğunda aktif olacak.
 
-    Backend henüz bağlı değilse gerçek olmayan bir sonuç üretilmez.
+    Mevcut HF FLUX text_to_image API'si doğrudan bu işlemi
+    güvenilir şekilde yapmadığı için sahte üretim yapılmaz.
     """
 
     if not LOCAL_BACKEND_URL:
@@ -934,14 +928,12 @@ def generate_character_image(
 
             import base64
 
-            image_data = base64.b64decode(
-                data["image"]
-            )
-
             return (
                 Image.open(
-                    io.BytesIO(image_data)
-                ).convert("RGB"),
+                    io.BytesIO(
+                        base64.b64decode(data["image"])
+                    )
+                ),
                 None,
             )
 
@@ -968,7 +960,7 @@ def generate_character_image(
                         io.BytesIO(
                             result.content
                         )
-                    ).convert("RGB"),
+                    ),
                     None,
                 )
 
@@ -1349,10 +1341,7 @@ with tabs[0]:
 
         seed = None
 
-    st.markdown(
-        "<br>",
-        unsafe_allow_html=True,
-    )
+    st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button(
         "✦ GÖRSEL OLUŞTUR",
@@ -1427,7 +1416,9 @@ NEGATIVE:
 
                     st.error(error)
 
-                elif enhanced_prompt:
+                    enhanced_prompt = None
+
+                if enhanced_prompt:
 
                     final_prompt = enhanced_prompt
 
@@ -1638,10 +1629,7 @@ with tabs[1]:
             unsafe_allow_html=True,
         )
 
-        st.markdown(
-            "<br>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<br>", unsafe_allow_html=True)
 
         if st.button(
             "🎭 KARAKTERİ OLUŞTUR",
