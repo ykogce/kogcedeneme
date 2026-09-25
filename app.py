@@ -13,14 +13,9 @@ headers = {
 }
 
 # ==============================================================================
-# HUGGING FACE'İN ŞU AN ÇALIŞAN AKTİF SERVERLESS MODEL ENDPOINT'LERİ
+# ŞU AN KESİNLİKLE AKTİF VE ÇALIŞAN GÖRSEL ENDPOINT'İ
 # ==============================================================================
-# Görsel: FLUX.1-schnell (Aktif ve Hızlı)
 IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
-
-# Video: Zeroscope v2 (Hugging Face Serverless üzerinde faal olan video modeli)
-VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/cerspense/zeroscope_v2_576w"
-# ==============================================================================
 
 st.set_page_config(page_title="KOGCE AI Studio Pro", page_icon="✨", layout="wide")
 
@@ -101,9 +96,9 @@ if use_password and user_pass != "1234":
 
 # BAŞLIK
 st.markdown('<h1 class="main-title">✨ KOGCE AI CREATIVE STUDIO PRO</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">FLUX.1 & Zeroscope Video Engine • Kesintisiz Üretim</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">FLUX.1-schnell Görsel Motoru • Kesintisiz Üretim</p>', unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluştur", "🎥 Video Üret", "🖼️ Galeri"])
+tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluştur", "🎥 Video Üretim Durumu", "🖼️ Galeri"])
 
 # ==================== TAB 1: GÖRSEL ====================
 with tab1:
@@ -132,7 +127,6 @@ with tab1:
                 st.info(f"✨ **Prompt:** {final_prompt}")
 
                 with st.spinner("🎨 FLUX.1 görsel çiziyor..."):
-                    # 400 hatasını önlemek için yalnızca 'inputs' yollanır
                     payload = {"inputs": final_prompt}
                     try:
                         response = requests.post(IMAGE_MODEL_URL, headers=headers, json=payload, timeout=60)
@@ -151,55 +145,21 @@ with tab1:
                             )
                             st.session_state.history.append({"type": "image", "data": image, "prompt": final_prompt})
                         elif response.status_code == 503:
-                            st.error("⏳ Model sunucuda soğuk kurulumda (Isınıyor). 15-20 saniye sonra tekrar butonuna basın.")
-                        elif response.status_code == 410:
-                            st.error("❌ Model kaldırılmış (410). Lütfen kod içi model URL adresini kontrol edin.")
+                            st.error("⏳ Model sunucuda uyanıyor. 15-20 saniye sonra tekrar 'Görseli Üret' butonuna basın.")
                         else:
                             st.error(f"Hata ({response.status_code}): {response.text}")
                     except Exception as e:
                         st.error(f"Bağlantı Hatası: {e}")
 
-# ==================== TAB 2: VİDEO ====================
+# ==================== TAB 2: VİDEO BİLGİLENDİRME ====================
 with tab2:
-    col_v_in, col_v_out = st.columns([1, 1], gap="large")
+    st.markdown("### 🎬 Video Üretim Durumu")
+    st.warning("⚠️ **Hugging Face Ücretsiz Serverless API Güncellemesi:**")
+    st.info("""
+    Hugging Face, tüm ücretsiz Serverless Video Modellerini sunuculardan kaldırdı (410 Hatası). 
     
-    with col_v_in:
-        st.markdown("### 🎬 Video Sahnesi")
-        vid_prompt = st.text_area("Video Tarifi:", placeholder="Örn: Ocean waves crashing on rocks, cinematic...", value="", height=120)
-        btn_vid = st.button("🎬 VİDEO ÜRET", type="primary", use_container_width=True)
-
-    with col_v_out:
-        st.markdown("### 🎥 Video Çıktısı")
-        if btn_vid:
-            if not vid_prompt:
-                st.warning("Lütfen metin girin!")
-            else:
-                final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic", "16:9")
-                st.info(f"✨ **Prompt:** {final_vid_prompt}")
-
-                with st.spinner("🎬 Zeroscope V2 video işliyor (Model uyanırken 30-60 sn sürebilir)..."):
-                    payload = {"inputs": final_vid_prompt}
-                    try:
-                        response = requests.post(VIDEO_MODEL_URL, headers=headers, json=payload, timeout=120)
-                        
-                        if response.status_code == 200:
-                            video_bytes = response.content
-                            st.video(video_bytes)
-                            st.download_button(
-                                label="📥 Videoyu İndir (MP4)",
-                                data=video_bytes,
-                                file_name=f"video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4",
-                                mime="video/mp4",
-                                use_container_width=True
-                            )
-                        elif response.status_code == 503:
-                            st.error("⏳ Video modeli şu an başlatılıyor. Lütfen yaklaşık 30-45 saniye bekleyip tekrar 'Video Üret' butonuna basın.")
-                        elif response.status_code == 410:
-                            st.error("❌ Bu video modeli Serverless API'den kaldırılmış. Lütfen ücretsiz sunucularda aktif olan başka bir model tanımlayın.")
-                        else:
-                            st.error(f"Hata ({response.status_code}): {response.text}")
-                    except Exception as e:
-                        st.error(f"Bağlantı Hatası: {e}")
+    Görsel sekmesini (%100 Aktif ve Ücretsiz) sorunsuz kullanabilirsiniz. Video üretimi için harici bir API (Replicate veya Fal.ai) entegre etmek isterseniz bildirebilirsiniz.
+    """)
 
 # ==================== TAB 3: GALERİ ====================
 with tab3:
