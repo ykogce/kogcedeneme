@@ -12,14 +12,14 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# DOĞRU VE FAAL ENDPOINT'LER
-IMAGE_MODEL_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell"
-VIDEO_MODEL_URL = "https://api-inference.huggingface.co/models/damo-vilab/text-to-video-ms-1.7m"
+# GÜNCEL VE ÇALIŞAN HUGGING FACE ROUTER ENDPOINT'LERİ
+IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
+VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/damo-vilab/text-to-video-ms-1.7m"
 
 # Sayfa Konfigürasyonu
 st.set_page_config(page_title="KOGCE AI Studio Pro", page_icon="✨", layout="wide")
 
-# ==================== DARK THEME CSS ====================
+# ==================== DARK THEME & GLASSMORPHISM CSS ====================
 custom_css = """
 <style>
     .stApp { background-color: #0b0f19; color: #f8fafc; }
@@ -131,7 +131,7 @@ with tab1:
                 st.info(f"✨ **Prompt:** {final_prompt}")
 
                 with st.spinner("🎨 FLUX.1 görsel çiziyor..."):
-                    # 400 Hatasını engellemek için sadece sade "inputs" parametresi gönderiyoruz
+                    # 400 hatasını önlemek için yalnızca sade inputs objesi gönderiyoruz
                     payload = {"inputs": final_prompt}
                     try:
                         response = requests.post(IMAGE_MODEL_URL, headers=headers, json=payload, timeout=60)
@@ -150,11 +150,11 @@ with tab1:
                             )
                             st.session_state.history.append({"type": "image", "data": image, "prompt": final_prompt})
                         elif response.status_code == 503:
-                            st.error("⏳ Model şu an sunucuda yükleniyor (Isınıyor). Lütfen 15-20 saniye sonra tekrar 'Görseli Üret' butonuna basın.")
+                            st.error("⏳ Model sunucuda uyanıyor. Lütfen 15-20 saniye sonra tekrar deneyin.")
                         elif response.status_code == 401:
-                            st.error("🔑 API Key Hatası (401): Secrets kısmındaki HF_API_KEY bilginizi kontrol edin.")
+                            st.error("🔑 API Key Hatası (401): Streamlit Secrets alanındaki HF_API_KEY değerini ve token geçerliliğini kontrol edin.")
                         else:
-                            st.error(f"Sunucu Yanıtı ({response.status_code}): {response.text}")
+                            st.error(f"Sunucu Hata Kodu ({response.status_code}): {response.text}")
                     except Exception as e:
                         st.error(f"Bağlantı Hatası: {e}")
 
@@ -176,7 +176,7 @@ with tab2:
                 final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic", "16:9")
                 st.info(f"✨ **Prompt:** {final_vid_prompt}")
 
-                with st.spinner("🎬 Video işleniyor (Modeller ilk açılışta 30-45 sn bekletebilir)..."):
+                with st.spinner("🎬 Video işleniyor (İlk çalıştırmada model uyanırken 30-45 sn sürebilir)..."):
                     payload = {"inputs": final_vid_prompt}
                     try:
                         response = requests.post(VIDEO_MODEL_URL, headers=headers, json=payload, timeout=90)
@@ -191,11 +191,11 @@ with tab2:
                                 use_container_width=True
                             )
                         elif response.status_code == 503:
-                            st.error("⏳ Video modeli başlatılıyor. Lütfen 30 saniye bekleyip tekrar deneyin.")
+                            st.error("⏳ Video modeli uyanıyor. Lütfen 30 saniye sonra tekrar deneyin.")
                         else:
                             st.error(f"Hata ({response.status_code}): {response.text}")
                     except Exception as e:
-                        st.error(f"Bağlantı hatası: {e}")
+                        st.error(f"Bağlantı Hatası: {e}")
 
 # ==================== TAB 3: GALERİ ====================
 with tab3:
