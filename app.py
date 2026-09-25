@@ -17,8 +17,10 @@ PROMPT_MODEL = "openai/gpt-oss-120b"
 IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 
 # Tulpar / ComfyUI backend
-# Daha sonra Cloudflare Tunnel URL'sini buraya bağlayacağız.
-LOCAL_BACKEND_URL = st.secrets.get("LOCAL_BACKEND_URL", "").strip()
+LOCAL_BACKEND_URL = st.secrets.get(
+    "LOCAL_BACKEND_URL",
+    ""
+).strip()
 
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
@@ -74,7 +76,7 @@ HF_API_KEY = get_hf_key()
 # GLOBAL STYLE
 # ============================================================
 
-st.markdown(
+st.html(
     """
     <style>
 
@@ -444,8 +446,7 @@ st.markdown(
     }
 
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -877,14 +878,6 @@ def generate_character_image(
     preserve_clothes,
 ):
 
-    """
-    Bu endpoint Tulpar + ComfyUI identity/reference pipeline
-    kurulduğunda aktif olacak.
-
-    Mevcut HF FLUX text_to_image API'si doğrudan bu işlemi
-    güvenilir şekilde yapmadığı için sahte üretim yapılmaz.
-    """
-
     if not LOCAL_BACKEND_URL:
 
         return (
@@ -980,7 +973,11 @@ def generate_character_image(
 
 if not st.session_state.authenticated:
 
-    st.markdown(
+    # HTML doğrudan st.html ile render ediliyor.
+    # Böylece Markdown'ın HTML'yi kod paneli olarak göstermesi
+    # ihtimali ortadan kaldırılıyor.
+
+    st.html(
         """
         <div class="kogce-hero">
 
@@ -999,8 +996,7 @@ if not st.session_state.authenticated:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     left, center, right = st.columns(
@@ -1042,7 +1038,7 @@ if not st.session_state.authenticated:
 
 with st.sidebar:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-eyebrow">
             KOGCE
@@ -1057,8 +1053,7 @@ with st.sidebar:
         ">
             AI Studio
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.divider()
@@ -1115,7 +1110,7 @@ with st.sidebar:
 # MAIN HEADER
 # ============================================================
 
-st.markdown(
+st.html(
     """
     <div class="kogce-hero">
 
@@ -1133,8 +1128,7 @@ st.markdown(
         </div>
 
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -1160,7 +1154,7 @@ tabs = st.tabs(
 
 with tabs[0]:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -1174,8 +1168,7 @@ with tabs[0]:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     prompt = st.text_area(
@@ -1341,7 +1334,7 @@ with tabs[0]:
 
         seed = None
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.write("")
 
     if st.button(
         "✦ GÖRSEL OLUŞTUR",
@@ -1499,7 +1492,7 @@ NEGATIVE:
 
 with tabs[1]:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -1513,8 +1506,7 @@ with tabs[1]:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.info(
@@ -1605,7 +1597,7 @@ with tabs[1]:
             ),
         )
 
-        st.markdown(
+        st.html(
             """
             <div class="kogce-feature">
 
@@ -1625,11 +1617,10 @@ with tabs[1]:
                 </div>
 
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.write("")
 
         if st.button(
             "🎭 KARAKTERİ OLUŞTUR",
@@ -1712,7 +1703,7 @@ with tabs[1]:
 
 with tabs[2]:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -1726,8 +1717,7 @@ with tabs[2]:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     if LOCAL_BACKEND_URL:
@@ -2062,7 +2052,7 @@ with tabs[2]:
 
 with tabs[3]:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -2076,8 +2066,7 @@ with tabs[3]:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     tool = st.selectbox(
@@ -2451,7 +2440,7 @@ Number:
 
 with tabs[4]:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -2464,8 +2453,7 @@ with tabs[4]:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     if not st.session_state.gallery:
@@ -2515,7 +2503,7 @@ with tabs[4]:
 
 with tabs[5]:
 
-    st.markdown(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -2528,8 +2516,7 @@ with tabs[5]:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     col1, col2, col3, col4 = st.columns(4)
