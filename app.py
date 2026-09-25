@@ -5,7 +5,7 @@ from PIL import Image
 import datetime
 
 # Streamlit Secrets veya varsayılan Token okuma
-HF_API_KEY = st.secrets.get("HF_API_KEY", "hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX") 
+HF_API_KEY = st.secrets.get("HF_API_KEY", "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") 
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
