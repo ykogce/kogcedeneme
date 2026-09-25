@@ -1,69 +1,327 @@
 import streamlit as st
 import requests
-import json
-import time
+import io
+from PIL import Image
+import datetime
 
-st.set_page_config(page_title="AI Creative Studio", layout="wide")
+# ---------------------------------------------------------
+# BURAYA HUGGING FACE API TOKEN'INIZI YAPIŞTIRIN
+HF_API_KEY = "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" 
+# ---------------------------------------------------------
 
-st.title("🎨 AI CREATIVE STUDIO")
-st.caption("Juggernaut XL v9 • Wan 2.2 TI2V 5B")
+headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
-# Yan panel - Colab API Adresi Bağlantısı
-st.sidebar.header("🔌 Backend Bağlantısı")
-colab_url = st.sidebar.text_input("Colab API / Ngrok URL:", placeholder="http://xxxx.ngrok-free.app")
+# AI Modelleri API Adresleri
+IMAGE_MODEL_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+VIDEO_MODEL_URL = "https://api-inference.huggingface.co/models/Lightricks/LTX-Video"
+TEXT_MODEL_URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-Coder-32B-Instruct"
 
-tab1, tab2 = st.tabs(["📸 GÖRSEL ÜRET (Image)", "🎥 VİDEO ÜRET (Video)"])
+# Sayfa Konfigürasyonu
+st.set_page_config(page_title="KOGCE AI Studio", page_icon="✨", layout="wide")
 
+# ==================== ÖZEL ŞIK CSS TASARIMI ====================
+custom_css = """
+<style>
+    /* Ana Arka Plan ve Koyu Tema */
+    .stApp {
+        background-color: #0b0f19;
+        color: #f3f4f6;
+    }
+    
+    /* Üst Başlık Gradient Efekti */
+    .main-title {
+        font-size: 3rem !important;
+        font-weight: 800 !important;
+        background: linear-gradient(135deg, #a855f7 0%, #3b82f6 50%, #06b6d4 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        margin-bottom: 0.2rem;
+        letter-spacing: -1px;
+    }
+    
+    .sub-title {
+        text-align: center;
+        color: #9ca3af;
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Glassmorphism Kart Yapısı */
+    div[data-testid="stExpander"], div.stCard {
+        background: rgba(17, 24, 39, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Özel Sekme (Tabs) Tasarımı */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+        background-color: transparent;
+        justify-content: center;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre;
+        background-color: rgba(31, 41, 55, 0.6);
+        border-radius: 12px;
+        color: #9ca3af;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 0px 24px;
+        transition: all 0.3s ease;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    }
+
+    /* Neon Glow Üretim Butonları */
+    div.stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+        color: white;
+        font-weight: 700;
+        font-size: 1.05rem;
+        border-radius: 12px;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+        transition: all 0.3s ease;
+    }
+
+    div.stButton > button[kind="primary"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(124, 58, 237, 0.6);
+        background: linear-gradient(135deg, #6d28d9 0%, #1d4ed8 100%);
+    }
+
+    /* İndirme Butonu */
+    div.stDownloadButton > button {
+        background-color: rgba(31, 41, 55, 0.8) !important;
+        color: #38bdf8 !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+
+    div.stDownloadButton > button:hover {
+        background-color: rgba(56, 189, 248, 0.15) !important;
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
+    }
+
+    /* Metin Alanları ve Seçim Kutuları */
+    .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+        background-color: #111827 !important;
+        color: #f3f4f6 !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .stTextArea textarea:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2) !important;
+    }
+
+    /* Yan Menü (Sidebar) */
+    section[data-testid="stSidebar"] {
+        background-color: #0d121f;
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
+    }
+</style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+
+# Oturum Hafızası
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+def improve_prompt_with_ai(user_input, style_preset):
+    """Metni profesyonel İngilizce prompta dönüştüren yapay zeka motoru"""
+    style_instruction = f" Apply style: {style_preset}." if style_preset != "Doğal / Yok" else ""
+    system_prompt = (
+        "You are an expert AI image prompt generator. "
+        "Take the user's request (in any language) and expand it into a detailed, high-quality, professional English prompt for SDXL. "
+        f"Include details like lighting, composition, 8k resolution, cinematic atmosphere.{style_instruction} "
+        "Output ONLY the final expanded prompt in English, nothing else."
+    )
+    
+    payload = {
+        "inputs": f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n",
+        "parameters": {"max_new_tokens": 150, "temperature": 0.7}
+    }
+    
+    try:
+        res = requests.post(TEXT_MODEL_URL, headers=headers, json=payload, timeout=10)
+        if res.status_code == 200:
+            result = res.json()
+            if isinstance(result, list) and len(result) > 0:
+                generated_text = result[0].get("generated_text", "")
+                if "<|im_start|>assistant\n" in generated_text:
+                    return generated_text.split("<|im_start|>assistant\n")[-1].strip()
+                return generated_text.strip()
+    except Exception:
+        pass
+    return user_input
+
+# ----- YAN MENÜ (SIDEBAR) -----
+with st.sidebar:
+    st.title("⚙️ Kontrol Paneli")
+    st.markdown("---")
+    
+    use_password = st.checkbox("🔒 Özel Erişim Şifresi", value=False)
+    user_pass = ""
+    if use_password:
+        user_pass = st.text_input("Şifrenizi Girin:", type="password")
+    
+    st.markdown("---")
+    st.markdown("### 💡 İpuçları")
+    st.caption("• Türkçe metin yazabilirsiniz, akıllı yapay zeka isteğinizi otomatik olarak İngilizceye çevirip detaylandırır.")
+    st.caption("• Sosyal medya için **9:16 Dikey**, YouTube için **16:9 Yatay** boyut seçebilirsiniz.")
+
+if use_password and user_pass != "1234":
+    st.warning("🔑 Lütfen devam etmek için geçerli şifreyi girin. (Varsayılan: 1234)")
+    st.stop()
+
+# ----- ANA EKRAN BAŞLIK -----
+st.markdown('<h1 class="main-title">✨ KOGCE AI CREATIVE STUDIO</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">7/24 Kesintisiz • Akıllı Prompt Desteği • Yüksek Çözünürlüklü AI Üretim Platformu</p>', unsafe_allow_html=True)
+
+tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluşturur", "🎥 Video Üret", "🖼️ Üretim Galerisi"])
+
+# ==================== TAB 1: GÖRSEL ÜRETİM ====================
 with tab1:
-    st.subheader("Juggernaut XL — Text to Image")
+    col_input, col_output = st.columns([1, 1], gap="large")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        img_prompt = st.text_area("Prompt", "A futuristic cyberpunk city at night, highly detailed, 8k photo")
-        img_neg = st.text_area("Negative Prompt", "low quality, blurry, distorted, bad anatomy")
+    with col_input:
+        st.markdown("### 🎨 Hayalinizi Tarif Edin")
+        user_prompt = st.text_area(
+            "Ne oluşturmak istiyorsunuz?", 
+            "Gece vakti yağmurlu sokaklarda neon ışıklarla aydınlatılmış siberpunk bir şehir ve kırmızı spor araba",
+            height=120
+        )
         
-        w_col, h_col = st.columns(2)
-        with w_col:
-            width = st.selectbox("Genişlik", [512, 768, 1024, 1152, 1280], index=2)
-        with h_col:
-            height = st.selectbox("Yükseklik", [512, 768, 1024, 1152, 1280], index=2)
+        col_opt1, col_opt2 = st.columns(2)
+        with col_opt1:
+            aspect_ratio = st.selectbox(
+                "📐 Görsel Boyutu:",
+                ["Kare (1:1 - 1024x1024)", "Dikey / Story (9:16 - 768x1344)", "Yatay / YouTube (16:9 - 1344x768)"]
+            )
+        with col_opt2:
+            style_preset = st.selectbox(
+                "🎨 Sanat Stili:",
+                ["Doğal / Yok", "Fotogerçekçi (Photorealistic)", "Anime / Manga", "3D Render (Pixar)", "Yağlı Boya", "Cyberpunk", "Cinematic"]
+            )
             
-        steps = st.slider("Steps", 10, 50, 30)
-        cfg = st.slider("CFG", 1.0, 12.0, 5.0)
-        seed = st.number_input("Seed (-1 = Rastgele)", value=-1)
-        
-        btn_img = st.button("GÖRSEL ÜRET", type="primary")
+        use_ai_boost = st.checkbox("🤖 Akıllı Prompt İyileştirici (Yapay Zeka Metni Geliştirsin)", value=True)
+        btn_img = st.button("🚀 GÖRSELİ ÜRET", type="primary", use_container_width=True)
 
-    with col2:
+    with col_output:
+        st.markdown("### 🖼️ Çıktı Ekranı")
         if btn_img:
-            if not colab_url:
-                st.error("Lütfen yan panelden Colab URL adresinizi girin!")
+            if not user_prompt:
+                st.warning("Lütfen bir açıklama girin!")
+            elif HF_API_KEY == "hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX":
+                st.error("Lütfen koddaki HF_API_KEY alanına geçerli Hugging Face Token'ınızı girin!")
             else:
-                st.info("İşlem Colab sunucusuna gönderildi, bekleniyor...")
+                final_prompt = user_prompt
+                
+                width, height = 1024, 1024
+                if "9:16" in aspect_ratio:
+                    width, height = 768, 1344
+                elif "16:9" in aspect_ratio:
+                    width, height = 1344, 768
+                
+                if use_ai_boost:
+                    with st.spinner("🧠 Yapay zeka isteğinizi analiz ediyor..."):
+                        final_prompt = improve_prompt_with_ai(user_prompt, style_preset)
+                        st.info(f"✨ **Geliştirilen Prompt:** {final_prompt}")
 
+                with st.spinner("🎨 Görsel çiziliyor..."):
+                    payload = {
+                        "inputs": final_prompt,
+                        "parameters": {"width": width, "height": height}
+                    }
+                    response = requests.post(IMAGE_MODEL_URL, headers=headers, json=payload)
+                    
+                    if response.status_code == 200:
+                        image_bytes = response.content
+                        image = Image.open(io.BytesIO(image_bytes))
+                        st.image(image, caption="Üretilen Görsel", use_container_width=True)
+                        
+                        st.download_button(
+                            label="📥 Görseli Yüksek Kalitede İndir",
+                            data=image_bytes,
+                            file_name=f"ai_image_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                        
+                        st.session_state.history.append({"type": "image", "data": image, "prompt": final_prompt})
+                    else:
+                        st.error(f"Hata ({response.status_code}): Model yükleniyor olabilir, lütfen 10-15 sn sonra tekrar deneyin.")
+
+# ==================== TAB 2: VİDEO ÜRETİM ====================
 with tab2:
-    st.subheader("Wan 2.2 TI2V 5B — Video Generation")
+    col_v_in, col_v_out = st.columns([1, 1], gap="large")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        vid_prompt = st.text_area("Video Prompt", "A cinematic camera pan of a glowing sci-fi portal")
-        vid_neg = st.text_area("Video Negative Prompt", "static, blurry, low quality")
-        
-        vw_col, vh_col = st.columns(2)
-        with vw_col:
-            v_width = st.selectbox("Video Genişlik", [512, 576, 640, 704, 768], index=2)
-        with vh_col:
-            v_height = st.selectbox("Video Yükseklik", [512, 576, 640, 704, 768], index=2)
-            
-        frames = st.selectbox("Kare Sayısı (Frames)", [16, 32, 48, 64], index=1)
-        v_steps = st.slider("Video Steps", 5, 30, 20)
-        v_cfg = st.slider("Video CFG", 1.0, 10.0, 5.0)
-        
-        btn_vid = st.button("VİDEO ÜRET", type="primary")
+    with col_v_in:
+        st.markdown("### 🎬 Video Sahnesi Kurgulayın")
+        vid_prompt = st.text_area(
+            "Video İsteğiniz:", 
+            "Sisli ve karanlık bir ormanda parlayan mavi uzay kapısı, sinematik yavaş kamera hareketi",
+            height=120
+        )
+        btn_vid = st.button("🎬 VİDEO ÜRET", type="primary", use_container_width=True)
 
-    with col2:
+    with col_v_out:
+        st.markdown("### 🎥 Video Çıktısı")
         if btn_vid:
-            if not colab_url:
-                st.error("Lütfen yan panelden Colab URL adresinizi girin!")
+            if not vid_prompt:
+                st.warning("Lütfen bir video açıklaması yazın!")
+            elif HF_API_KEY == "hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX":
+                st.error("Lütfen koddaki HF_API_KEY alanına geçerli Hugging Face Token'ınızı girin!")
             else:
-                st.info("Video oluşturuluyor, bu işlem birkaç dakika sürebilir...")
+                with st.spinner("🧠 Video promptu optimize ediliyor..."):
+                    final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic")
+                    st.info(f"✨ **Geliştirilen Video Prompt:** {final_vid_prompt}")
+
+                with st.spinner("🎬 Video kareleri işleniyor (30-60 sn sürebilir)..."):
+                    payload = {"inputs": final_vid_prompt}
+                    response = requests.post(VIDEO_MODEL_URL, headers=headers, json=payload)
+                    
+                    if response.status_code == 200:
+                        video_bytes = response.content
+                        st.video(video_bytes)
+                        
+                        st.download_button(
+                            label="📥 Videoyu İndir (MP4)",
+                            data=video_bytes,
+                            file_name=f"ai_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4",
+                            mime="video/mp4",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error(f"Hata ({response.status_code}): Video sunucusu şu an yoğun, lütfen tekrar deneyin.")
+
+# ==================== TAB 3: GALERİ ====================
+with tab3:
+    st.markdown("### 🖼️ Bu Oturumda Oluşturulanlar")
+    
+    if len(st.session_state.history) == 0:
+        st.info("Henüz bu oturumda bir içerik üretilmedi. Görsel oluşturduktan sonra burada sergilenecektir!")
+    else:
+        cols = st.columns(3)
+        for idx, item in enumerate(reversed(st.session_state.history)):
+            with cols[idx % 3]:
+                if item["type"] == "image":
+                    st.image(item["data"], use_container_width=True)
+                    st.caption(f"**Prompt:** {item['prompt'][:60]}...")
