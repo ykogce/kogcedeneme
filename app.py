@@ -4,38 +4,37 @@ import io
 from PIL import Image
 import datetime
 
-# Streamlit Secrets veya yedek Token okuma
+# Streamlit Secrets üzerinden Güvenli Token Okuma
 HF_API_KEY = st.secrets.get("HF_API_KEY", "") 
 
 headers = {"Authorization": f"Bearer {HF_API_KEY}"}
 
-# Güncel Hugging Face Serverless Router Adresleri
+# Dünyanın En İyi Açık Kaynak Görsel & Video Modelleri (Router API)
 IMAGE_MODEL_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
 VIDEO_MODEL_URL = "https://router.huggingface.co/hf-inference/models/damo-vilab/text-to-video-ms-1.7m"
-TEXT_MODEL_URL  = "https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-Coder-32B-Instruct"
 
 # Sayfa Konfigürasyonu
-st.set_page_config(page_title="KOGCE AI Studio", page_icon="✨", layout="wide")
+st.set_page_config(page_title="KOGCE AI Studio Pro", page_icon="✨", layout="wide")
 
-# ==================== ULTRA MODERN & YÜKSEK KONTRAST CSS ====================
+# ==================== ULTRA MODERN & YÜKSEK KONTRAST DARK THEME ====================
 custom_css = """
 <style>
-    /* Ana Arka Plan ve Yüksek Kontrastlı Beyaz/Açık Yazılar */
+    /* Ana Arka Plan ve Yüksek Kontrastlı Beyaz Yazılar */
     .stApp {
         background-color: #0b0f19;
-        color: #f3f4f6;
+        color: #f8fafc;
     }
     
-    /* Tüm Genel Etiketler ve Yazılar İçin Açık Renk Zorlaması */
-    p, span, label, div, .stMarkdown {
-        color: #e5e7eb !important;
+    /* Tüm Etiketler ve Paragraflar İçin Kesin Açık Renk */
+    p, span, label, div, .stMarkdown, h1, h2, h3 {
+        color: #f1f5f9 !important;
     }
 
     /* Üst Başlık Gradient Efekti */
     .main-title {
         font-size: 3rem !important;
         font-weight: 800 !important;
-        background: linear-gradient(135deg, #a855f7 0%, #3b82f6 50%, #06b6d4 100%);
+        background: linear-gradient(135deg, #c084fc 0%, #38bdf8 50%, #818cf8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
@@ -45,19 +44,9 @@ custom_css = """
     
     .sub-title {
         text-align: center;
-        color: #cbd5e1 !important;
+        color: #94a3b8 !important;
         font-size: 1.1rem;
         margin-bottom: 2rem;
-    }
-
-    /* Modern Glassmorphism Kart Yapısı */
-    div[data-testid="stExpander"], div.stCard {
-        background: rgba(17, 24, 39, 0.85);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
     }
 
     /* Sekme (Tabs) Tasarımı */
@@ -69,7 +58,6 @@ custom_css = """
 
     .stTabs [data-baseweb="tab"] {
         height: 50px;
-        white-space: pre;
         background-color: rgba(30, 41, 59, 0.8);
         border-radius: 12px;
         color: #cbd5e1 !important;
@@ -80,29 +68,29 @@ custom_css = """
     }
 
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%) !important;
+        background: linear-gradient(135deg, #a855f7 0%, #2563eb 100%) !important;
         color: #ffffff !important;
         border: none !important;
-        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5);
+        box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
     }
 
     /* Neon Glow Üretim Butonları */
     div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+        background: linear-gradient(135deg, #9333ea 0%, #2563eb 100%);
         color: white !important;
         font-weight: 700;
         font-size: 1.05rem;
         border-radius: 12px;
         border: none;
         padding: 0.75rem 1.5rem;
-        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+        box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4);
         transition: all 0.3s ease;
     }
 
     div.stButton > button[kind="primary"]:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 25px rgba(124, 58, 237, 0.7);
-        background: linear-gradient(135deg, #6d28d9 0%, #1d4ed8 100%);
+        box-shadow: 0 6px 25px rgba(147, 51, 234, 0.7);
+        background: linear-gradient(135deg, #7e22ce 0%, #1d4ed8 100%);
     }
 
     /* İndirme Butonu */
@@ -115,18 +103,12 @@ custom_css = """
         transition: all 0.3s ease !important;
     }
 
-    div.stDownloadButton > button:hover {
-        background-color: rgba(56, 189, 248, 0.2) !important;
-        border-color: #38bdf8 !important;
-        color: #ffffff !important;
-    }
-
     /* Metin Kutuları ve Seçim Alanları */
     .stTextArea textarea {
         background-color: #111827 !important;
         color: #ffffff !important;
         border-radius: 12px !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
         font-size: 1rem !important;
     }
     
@@ -134,7 +116,7 @@ custom_css = """
         background-color: #111827 !important;
         color: #ffffff !important;
         border-radius: 12px !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
     }
 
     /* Yan Menü (Sidebar) */
@@ -151,32 +133,21 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 def improve_prompt_with_ai(user_input, style_preset):
-    """Metni profesyonel İngilizce prompta dönüştüren yapay zeka motoru"""
-    style_instruction = f" Apply style: {style_preset}." if style_preset != "Doğal / Yok" else ""
-    system_prompt = (
-        "You are an expert AI image prompt generator. "
-        "Take the user's request (in any language) and expand it into a detailed, high-quality, professional English prompt for FLUX/SDXL. "
-        f"Include details like lighting, composition, 8k resolution, cinematic atmosphere.{style_instruction} "
-        "Output ONLY the final expanded prompt in English, nothing else."
-    )
-    
-    payload = {
-        "inputs": f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{user_input}<|im_end|>\n<|im_start|>assistant\n",
-        "parameters": {"max_new_tokens": 120, "temperature": 0.7}
+    """
+    Kural Tabanlı Süper Hızlı Prompt Zenginleştirici (Option A).
+    API kilitlenmesi veya zaman aşımı yaşanmaz. FLUX için mükemmel detay katar.
+    """
+    style_modifiers = {
+        "Fotogerçekçi (Photorealistic)": "photorealistic, 8k resolution, highly detailed, professional photography, cinematic lighting, octane render, masterwork",
+        "Anime / Manga": "anime style, highly detailed illustration, studio ghibli inspired, vibrant colors, crisp lines, masterpiece",
+        "3D Render (Pixar)": "3D render, Pixar style, Octane render, smooth textures, studio lighting, volumetric shadows",
+        "Yağlı Boya": "oil painting style, rich textures, expressive brush strokes, classic art masterpiece",
+        "Cyberpunk": "cyberpunk style, glowing neon lights, futuristic city background, volumetric lighting, high contrast",
+        "Cinematic": "cinematic movie shot, dramatic lighting, 8k resolution, photorealistic, shallow depth of field, 35mm lens"
     }
     
-    try:
-        res = requests.post(TEXT_MODEL_URL, headers=headers, json=payload, timeout=10)
-        if res.status_code == 200:
-            result = res.json()
-            if isinstance(result, list) and len(result) > 0:
-                generated_text = result[0].get("generated_text", "")
-                if "<|im_start|>assistant\n" in generated_text:
-                    return generated_text.split("<|im_start|>assistant\n")[-1].strip()
-                return generated_text.strip()
-    except Exception:
-        pass
-    return user_input
+    modifier = style_modifiers.get(style_preset, "high quality, 8k resolution, highly detailed, masterpiece")
+    return f"{user_input}, {modifier}"
 
 # ----- YAN MENÜ (SIDEBAR) -----
 with st.sidebar:
@@ -191,18 +162,18 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 💡 İpuçları")
     st.write("• Türkçe veya İngilizce yazabilirsiniz.")
-    st.write("• Akıllı Yapay Zeka Desteği açıkken metniniz otomatik geliştirilir.")
-    st.write("• Sosyal medya için **9:16 Dikey**, YouTube için **16:9 Yatay** boyut kullanabilirsiniz.")
+    st.write("• **FLUX.1-schnell** motoru Türkçe açıklamaları yüksek kalitede anlar.")
+    st.write("• Sosyal medya için **9:16 Dikey**, YouTube için **16:9 Yatay** boyut seçebilirsiniz.")
 
 if use_password and user_pass != "1234":
     st.warning("🔑 Lütfen devam etmek için geçerli şifreyi girin. (Varsayılan: 1234)")
     st.stop()
 
 # ----- ANA EKRAN BAŞLIK -----
-st.markdown('<h1 class="main-title">✨ KOGCE AI CREATIVE STUDIO</h1>', unsafe_allow_html=True)
-st.markdown('<p class="sub-title">7/24 Kesintisiz • Akıllı Prompt Desteği • Yüksek Çözünürlüklü AI Üretim Platformu</p>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-title">✨ KOGCE AI CREATIVE STUDIO PRO</h1>', unsafe_allow_html=True)
+st.markdown('<p class="sub-title">FLUX.1-schnell Motoru • 0 Gecikmeli Akıllı Prompt Booster • Yüksek Çözünürlük</p>', unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluştur", "🎥 Video Üret", "🖼️ Üretim Galerisi"])
+tab1, tab2, tab3 = st.tabs(["📸 Görsel Oluştur (FLUX)", "🎥 Video Üret", "🖼️ Üretim Galerisi"])
 
 # ==================== TAB 1: GÖRSEL ÜRETİM ====================
 with tab1:
@@ -212,7 +183,7 @@ with tab1:
         st.markdown("### 🎨 Hayalinizi Tarif Edin")
         user_prompt = st.text_area(
             "Ne oluşturmak istiyorsunuz?", 
-            placeholder="İstediğiniz görseli tarif edin...",
+            placeholder="İstediğiniz görseli buraya tarif edin...",
             value="",
             height=120
         )
@@ -229,7 +200,7 @@ with tab1:
                 ["Doğal / Yok", "Fotogerçekçi (Photorealistic)", "Anime / Manga", "3D Render (Pixar)", "Yağlı Boya", "Cyberpunk", "Cinematic"]
             )
             
-        use_ai_boost = st.checkbox("🤖 Akıllı Prompt İyileştirici (Yapay Zeka Metni Geliştirsin)", value=True)
+        use_ai_boost = st.checkbox("⚡ Akıllı Prompt Booster (Metni Otomatik Zenginleştir)", value=True)
         btn_img = st.button("🚀 GÖRSELİ ÜRET", type="primary", use_container_width=True)
 
     with col_output:
@@ -247,11 +218,10 @@ with tab1:
                     width, height = 1344, 768
                 
                 if use_ai_boost:
-                    with st.spinner("🧠 Yapay zeka isteğinizi analiz ediyor..."):
-                        final_prompt = improve_prompt_with_ai(user_prompt, style_preset)
-                        st.info(f"✨ **Geliştirilen Prompt:** {final_prompt}")
+                    final_prompt = improve_prompt_with_ai(user_prompt, style_preset)
+                    st.info(f"✨ **Oluşturulan Prompt:** {final_prompt}")
 
-                with st.spinner("🎨 Görsel FLUX motoru ile çiziliyor..."):
+                with st.spinner("🎨 FLUX.1-schnell motoru görseli çiziyor..."):
                     payload = {
                         "inputs": final_prompt,
                         "parameters": {"width": width, "height": height}
@@ -261,21 +231,23 @@ with tab1:
                         if response.status_code == 200:
                             image_bytes = response.content
                             image = Image.open(io.BytesIO(image_bytes))
-                            st.image(image, caption="Üretilen Görsel", use_container_width=True)
+                            st.image(image, caption="FLUX.1 Tarafından Üretildi", use_container_width=True)
                             
                             st.download_button(
                                 label="📥 Görseli Yüksek Kalitede İndir",
                                 data=image_bytes,
-                                file_name=f"ai_image_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                                file_name=f"flux_ai_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
                                 mime="image/png",
                                 use_container_width=True
                             )
                             
                             st.session_state.history.append({"type": "image", "data": image, "prompt": final_prompt})
+                        elif response.status_code == 401:
+                            st.error("🔑 Yetkilendirme Hatası (401): Streamlit Secrets alanındaki HF_API_KEY bilginizi veya yeni oluşturduğunuz Token'ı kontrol edin.")
                         else:
-                            st.error(f"Hata ({response.status_code}): Model yükleniyor veya yoğun. Lütfen 10-15 saniye sonra tekrar deneyin.")
+                            st.error(f"Sunucu Yanıtı ({response.status_code}): Lütfen 10 saniye bekleyip tekrar deneyin.")
                     except requests.exceptions.RequestException:
-                        st.error("Sunucuya erişilirken zaman aşımı oluştu. Lütfen tekrar deneyin.")
+                        st.error("Sunucu bağlantı zaman aşımına uğradı. Lütfen tekrar deneyin.")
 
 # ==================== TAB 2: VİDEO ÜRETİM ====================
 with tab2:
@@ -285,7 +257,7 @@ with tab2:
         st.markdown("### 🎬 Video Sahnesi Kurgulayın")
         vid_prompt = st.text_area(
             "Video İsteğiniz:", 
-            placeholder="İstediğiniz video sahnesini yazın...",
+            placeholder="İstediğiniz video sahnesini tarif edin...",
             value="",
             height=120
         )
@@ -297,11 +269,10 @@ with tab2:
             if not vid_prompt:
                 st.warning("Lütfen bir video açıklaması yazın!")
             else:
-                with st.spinner("🧠 Video promptu optimize ediliyor..."):
-                    final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic")
-                    st.info(f"✨ **Geliştirilen Video Prompt:** {final_vid_prompt}")
+                final_vid_prompt = improve_prompt_with_ai(vid_prompt, "Cinematic")
+                st.info(f"✨ **Video Prompt:** {final_vid_prompt}")
 
-                with st.spinner("🎬 Video işleniyor (30-60 sn sürebilir)..."):
+                with st.spinner("🎬 Video kareleri işleniyor (30-60 sn sürebilir)..."):
                     payload = {"inputs": final_vid_prompt}
                     try:
                         response = requests.post(VIDEO_MODEL_URL, headers=headers, json=payload, timeout=90)
@@ -317,7 +288,7 @@ with tab2:
                                 use_container_width=True
                             )
                         else:
-                            st.error(f"Hata ({response.status_code}): Video sunucusu yoğun. Lütfen tekrar deneyin.")
+                            st.error(f"Hata ({response.status_code}): Video sunucusu yoğun veya ısınma aşamasında. Lütfen tekrar deneyin.")
                     except requests.exceptions.RequestException:
                         st.error("Video sunucusuna bağlanırken zaman aşımı oluştu.")
 
@@ -326,7 +297,7 @@ with tab3:
     st.markdown("### 🖼️ Bu Oturumda Oluşturulanlar")
     
     if len(st.session_state.history) == 0:
-        st.info("Henüz bu oturumda bir içerik üretilmedi. Görsel oluşturduktan sonra burada sergilenecektir!")
+        st.info("Henüz bu oturumda içerik üretilmedi. Görsel oluşturduktan sonra burada sergilenecektir!")
     else:
         cols = st.columns(3)
         for idx, item in enumerate(reversed(st.session_state.history)):
