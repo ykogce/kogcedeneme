@@ -26,7 +26,6 @@ IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 PROMPT_MODEL = "openai/gpt-oss-120b"
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
-# Kullanıcının istediği şekilde sabit uygulama şifresi
 APP_PASSWORD = "1234"
 
 
@@ -48,8 +47,6 @@ if "history" not in st.session_state:
 st.markdown(
     """
     <style>
-
-    /* ---------- GLOBAL ---------- */
 
     .stApp {
         background:
@@ -73,8 +70,6 @@ st.markdown(
         padding-bottom: 4rem;
     }
 
-    /* ---------- SIDEBAR ---------- */
-
     section[data-testid="stSidebar"] {
         background: #0b0e15;
         border-right: 1px solid rgba(255,255,255,0.07);
@@ -84,10 +79,8 @@ st.markdown(
         padding-top: 2rem;
     }
 
-    /* ---------- HERO ---------- */
-
     .hero-wrapper {
-        padding: 42px 0 30px 0;
+        padding: 35px 0 30px 0;
     }
 
     .hero-badge {
@@ -127,14 +120,16 @@ st.markdown(
         line-height: 1.65;
     }
 
-    /* ---------- CARDS ---------- */
+    .section-title {
+        font-size: 25px;
+        font-weight: 750;
+        margin-bottom: 5px;
+    }
 
-    .glass-card {
-        background: rgba(18, 21, 31, 0.72);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.20);
+    .section-description {
+        color: #8f98aa;
+        font-size: 14px;
+        margin-bottom: 20px;
     }
 
     .status-card {
@@ -169,25 +164,9 @@ st.markdown(
         color: #ffc86b;
     }
 
-    /* ---------- SECTION TITLES ---------- */
-
-    .section-title {
-        font-size: 25px;
-        font-weight: 750;
-        margin-bottom: 5px;
-    }
-
-    .section-description {
-        color: #8f98aa;
-        font-size: 14px;
-        margin-bottom: 20px;
-    }
-
-    /* ---------- LOGIN ---------- */
-
     .login-box {
         max-width: 480px;
-        margin: 100px auto;
+        margin: 100px auto 25px auto;
         padding: 40px;
         background: rgba(18, 21, 31, 0.82);
         border: 1px solid rgba(255,255,255,0.08);
@@ -206,8 +185,6 @@ st.markdown(
         color: #929aaa;
         margin-bottom: 28px;
     }
-
-    /* ---------- PIPELINE ---------- */
 
     .pipeline {
         display: flex;
@@ -232,8 +209,6 @@ st.markdown(
         font-size: 14px;
     }
 
-    /* ---------- FOOTER ---------- */
-
     .footer {
         text-align: center;
         color: #555d6c;
@@ -241,21 +216,17 @@ st.markdown(
         padding-top: 30px;
     }
 
-    /* ---------- STREAMLIT BUTTONS ---------- */
-
-    .stButton > button {
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.08);
-        min-height: 44px;
-        font-weight: 650;
-    }
-
-    /* ---------- IMAGE ---------- */
-
     .generated-image {
         border-radius: 18px;
         overflow: hidden;
         border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .engine-box {
+        background: rgba(17, 20, 29, 0.75);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
+        padding: 20px;
     }
 
     </style>
@@ -405,10 +376,14 @@ def generate_image(prompt, width, height):
 # ============================================================
 
 def login_screen():
+
     st.markdown(
         """
         <div class="login-box">
-            <div class="login-title">KOGCE AI Studio</div>
+            <div class="login-title">
+                KOGCE AI Studio
+            </div>
+
             <div class="login-subtitle">
                 AI Creative Workspace
             </div>
@@ -420,6 +395,7 @@ def login_screen():
     left, center, right = st.columns([1, 2, 1])
 
     with center:
+
         password = st.text_input(
             "Uygulama şifresi",
             type="password",
@@ -431,9 +407,11 @@ def login_screen():
             use_container_width=True,
             type="primary",
         ):
+
             if password == APP_PASSWORD:
                 st.session_state.authenticated = True
                 st.rerun()
+
             else:
                 st.error("Şifre yanlış.")
 
@@ -572,6 +550,10 @@ with tab_create:
         gap="large",
     )
 
+    # --------------------------------------------------------
+    # SOL TARAF
+    # --------------------------------------------------------
+
     with col_left:
 
         user_prompt = st.text_area(
@@ -608,63 +590,96 @@ with tab_create:
             type="primary",
         )
 
+
+    # --------------------------------------------------------
+    # SAĞ TARAF
+    # --------------------------------------------------------
+
     with col_right:
 
         st.markdown(
+            '<div class="engine-box">',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
             """
-            <div class="glass-card">
-
-                <div style="
-                    font-size:17px;
-                    font-weight:750;
-                    margin-bottom:15px;
-                ">
-                    Üretim Sistemi
-                </div>
-
-                <div class="status-card">
-                    <div class="status-title">
-                        Prompt AI
-                    </div>
-                    <div class="status-value online">
-                        Hazır
-                    </div>
-                </div>
-
-                <div class="status-card">
-                    <div class="status-title">
-                        FLUX.1-schnell
-                    </div>
-                    <div class="status-value online">
-                        Hazır
-                    </div>
-                </div>
-
-                <div class="status-card">
-                    <div class="status-title">
-                        Video Engine
-                    </div>
-                    <div class="status-value warning">
-                        Henüz bağlı değil
-                    </div>
-                </div>
-
+            <div style="
+                font-size:17px;
+                font-weight:750;
+                margin-bottom:15px;
+            ">
+                Üretim Sistemi
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+        st.markdown(
+            """
+            <div class="status-card">
+                <div class="status-title">
+                    Prompt AI
+                </div>
 
-    # --------------------------------------------------------
+                <div class="status-value online">
+                    Hazır
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="status-card">
+                <div class="status-title">
+                    FLUX.1-schnell
+                </div>
+
+                <div class="status-value online">
+                    Hazır
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="status-card">
+                <div class="status-title">
+                    Video Engine
+                </div>
+
+                <div class="status-value warning">
+                    Henüz bağlı değil
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+
+    # ========================================================
     # GENERATION
-    # --------------------------------------------------------
+    # ========================================================
 
     if generate_button:
 
         if not user_prompt.strip():
-            st.warning("Önce bir fikir veya prompt gir.")
+
+            st.warning(
+                "Önce bir fikir veya prompt gir."
+            )
 
         elif not HF_API_KEY:
+
             st.error(
                 "HF_API_KEY bulunamadı. "
                 "Streamlit Secrets bölümünü kontrol et."
@@ -681,7 +696,9 @@ with tab_create:
                 ):
 
                     enhanced_prompt, prompt_error = (
-                        improve_prompt_with_ai(final_prompt)
+                        improve_prompt_with_ai(
+                            final_prompt
+                        )
                     )
 
                 if prompt_error:
@@ -690,13 +707,15 @@ with tab_create:
 
                 final_prompt = enhanced_prompt
 
-                with st.expander(
-                    "🤖 AI tarafından geliştirilen prompt",
-                    expanded=True,
-                ):
-                    st.write(final_prompt)
+                st.markdown(
+                    "### AI tarafından geliştirilen prompt"
+                )
 
-            width, height = get_dimensions(aspect_ratio)
+                st.info(final_prompt)
+
+            width, height = get_dimensions(
+                aspect_ratio
+            )
 
             with st.spinner(
                 "FLUX görseli oluşturuyor..."
@@ -709,11 +728,14 @@ with tab_create:
                 )
 
             if image_error:
+
                 st.error(image_error)
 
             elif image is not None:
 
-                st.success("Görsel başarıyla oluşturuldu.")
+                st.success(
+                    "Görsel başarıyla oluşturuldu."
+                )
 
                 st.markdown(
                     '<div class="generated-image">',
@@ -731,6 +753,7 @@ with tab_create:
                 )
 
                 image_bytes = io.BytesIO()
+
                 image.save(
                     image_bytes,
                     format="PNG",
@@ -740,7 +763,9 @@ with tab_create:
 
                 filename = (
                     "kogce_ai_"
-                    + datetime.now().strftime("%Y%m%d_%H%M%S")
+                    + datetime.now().strftime(
+                        "%Y%m%d_%H%M%S"
+                    )
                     + ".png"
                 )
 
@@ -756,12 +781,16 @@ with tab_create:
                     0,
                     {
                         "image": image,
-                        "original_prompt": user_prompt.strip(),
-                        "final_prompt": final_prompt,
-                        "aspect_ratio": aspect_ratio,
-                        "created_at": datetime.now().strftime(
-                            "%Y-%m-%d %H:%M:%S"
-                        ),
+                        "original_prompt":
+                            user_prompt.strip(),
+                        "final_prompt":
+                            final_prompt,
+                        "aspect_ratio":
+                            aspect_ratio,
+                        "created_at":
+                            datetime.now().strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
                     },
                 )
 
@@ -790,51 +819,65 @@ with tab_video:
     c1, c2, c3 = st.columns(3)
 
     with c1:
+
         st.markdown(
             """
             <div class="status-card">
+
                 <div class="status-title">
                     AI Prompt Robotu
                 </div>
+
                 <div class="status-value online">
                     AKTİF
                 </div>
+
             </div>
             """,
             unsafe_allow_html=True,
         )
 
     with c2:
+
         st.markdown(
             """
             <div class="status-card">
+
                 <div class="status-title">
                     FLUX Görsel Motoru
                 </div>
+
                 <div class="status-value online">
                     AKTİF
                 </div>
+
             </div>
             """,
             unsafe_allow_html=True,
         )
 
     with c3:
+
         st.markdown(
             """
             <div class="status-card">
+
                 <div class="status-title">
                     Video Motoru
                 </div>
+
                 <div class="status-value warning">
                     BEKLEMEDE
                 </div>
+
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    st.markdown("### Planlanan Video Pipeline")
+    st.markdown(
+        "### Planlanan Video Pipeline"
+    )
 
     st.markdown(
         """
@@ -973,13 +1016,17 @@ with tab_gallery:
                     f"Oran: {item['aspect_ratio']}"
                 )
 
-                st.markdown("**Orijinal fikir**")
+                st.markdown(
+                    "**Orijinal fikir**"
+                )
 
                 st.write(
                     item["original_prompt"]
                 )
 
-                st.markdown("**Final prompt**")
+                st.markdown(
+                    "**Final prompt**"
+                )
 
                 st.write(
                     item["final_prompt"]
@@ -1035,66 +1082,30 @@ with tab_system:
     with system_col1:
 
         st.markdown(
-            """
-            <div class="glass-card">
-
-                <div style="
-                    font-size:18px;
-                    font-weight:750;
-                    margin-bottom:18px;
-                ">
-                    API Durumu
-                </div>
-
-            """,
-            unsafe_allow_html=True,
+            "### API Durumu"
         )
 
         if HF_API_KEY:
-            st.success("Hugging Face API: AKTİF")
+            st.success(
+                "Hugging Face API: AKTİF"
+            )
         else:
-            st.error("Hugging Face API: BULUNAMADI")
-
-        st.markdown(
-            "</div>",
-            unsafe_allow_html=True,
-        )
+            st.error(
+                "Hugging Face API: BULUNAMADI"
+            )
 
     with system_col2:
 
         st.markdown(
-            """
-            <div class="glass-card">
+            "### Modeller"
+        )
 
-                <div style="
-                    font-size:18px;
-                    font-weight:750;
-                    margin-bottom:18px;
-                ">
-                    Modeller
-                </div>
+        st.write(
+            "Görsel Modeli: FLUX.1-schnell"
+        )
 
-                <div class="status-card">
-                    <div class="status-title">
-                        Görsel Modeli
-                    </div>
-                    <div class="status-value">
-                        FLUX.1-schnell
-                    </div>
-                </div>
-
-                <div class="status-card">
-                    <div class="status-title">
-                        Prompt Modeli
-                    </div>
-                    <div class="status-value">
-                        GPT OSS 120B
-                    </div>
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.write(
+            "Prompt Modeli: GPT OSS 120B"
         )
 
     st.markdown("---")
