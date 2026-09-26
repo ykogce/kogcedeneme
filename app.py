@@ -1363,74 +1363,22 @@ with tabs[0]:
 
             if ai_boost:
 
-                with st.spinner(
-                    "AI Prompt Robotu görseli hazırlıyor..."
-                ):
-
-                    enhanced_prompt, error = call_ai(
-                        """
-You are an expert professional image-generation prompt engineer.
-
-Transform the user's idea and the supplied visual settings into ONE
-high-quality English image-generation prompt.
-
-IMPORTANT:
-- Preserve the user's subject and intended meaning.
-- Respect every supplied style, lighting, camera, quality and mood choice.
-- Do not invent major story elements.
-- Make the composition visually coherent.
-- Describe realistic details where appropriate.
-- Return ONLY the final prompt.
-""",
-                        f"""
-USER IDEA:
-{prompt}
-
-STYLE:
-{style}
-
-LIGHTING:
-{lighting}
-
-CAMERA:
-{camera}
-
-QUALITY:
-{quality}
-
-COLOR / MOOD:
-{color_mood}
-
-NEGATIVE:
-{negative_prompt}
-""",
-                        temperature=0.7,
-                        max_tokens=1800,
+                # Local prompt enhancement only. Image generation itself is
+                # always handled by Tulpar/ComfyUI; no HF inference credits.
+                with st.spinner("Yerel Prompt Robotu görseli hazırlıyor..."):
+                    enhanced_prompt = (
+                        final_prompt
+                        + " High visual fidelity, coherent composition, detailed textures, "
+                        + "natural lighting, accurate perspective, clean subject separation."
                     )
+                    if negative_prompt.strip():
+                        enhanced_prompt += " Avoid: " + negative_prompt.strip() + "."
 
-                if error:
+                final_prompt = enhanced_prompt.strip()
+                st.session_state.last_enhanced_prompt = final_prompt
 
-                    st.error(error)
-
-                    enhanced_prompt = None
-
-                if enhanced_prompt:
-
-                    final_prompt = enhanced_prompt
-
-                    st.session_state.last_enhanced_prompt = (
-                        enhanced_prompt
-                    )
-
-                    with st.expander(
-                        "AI tarafından oluşturulan final prompt",
-                        expanded=True,
-                    ):
-
-                        st.code(
-                            enhanced_prompt,
-                            language="text",
-                        )
+                with st.expander("AI tarafından oluşturulan final prompt", expanded=True):
+                    st.code(final_prompt, language="text")
 
             if not LOCAL_BACKEND_URL:
                 st.warning("Tulpar backend adresi tanımlanmamış.")
