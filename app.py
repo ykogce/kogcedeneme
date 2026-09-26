@@ -12,16 +12,26 @@ from PIL import Image
 
 APP_PASSWORD = "1234"
 
-PROMPT_MODEL = "openai/gpt-oss-120b"
-IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
+# Local prompt AI. Ollama runs on the user's own PC/GPU.
+# Default model can be changed from Streamlit secrets:
+# OLLAMA_MODEL = "qwen2.5:3b"
+OLLAMA_URL = st.secrets.get(
+    "OLLAMA_URL",
+    "http://127.0.0.1:11434"
+).strip().rstrip("/")
+
+OLLAMA_MODEL = st.secrets.get(
+    "OLLAMA_MODEL",
+    "qwen2.5:3b"
+).strip()
+
+IMAGE_MODEL = "Qwen Image 2.1 — Tulpar / ComfyUI"
 
 # Tulpar / ComfyUI backend
 LOCAL_BACKEND_URL = st.secrets.get(
     "LOCAL_BACKEND_URL",
     ""
 ).strip()
-
-CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
 # Tulpar / ComfyUI GPU üretimleri 45 saniyeden uzun sürebilir.
 GENERATION_TIMEOUT = 1800  # 30 dakika
@@ -61,21 +71,165 @@ for key, value in defaults.items():
 
 
 # ============================================================
-# HUGGING FACE
+# LOCAL AI PROMPT ROBOT
 # ============================================================
 
-def get_hf_key():
+def clean_prompt(value):
+    if value is None:
+        return ""
+    return " ".join(str(value).replace("\x00", " ").split()).strip()
+
+
+def local_ai_available():
     try:
-        return st.secrets["HF_API_KEY"]
+        response = requests.get(
+            f"{OLLAMA_URL}/api/tags",
+            timeout=2,
+        )
+        return response.status_code == 200
     except Exception:
-        return None
+        return False
 
 
-HF_API_KEY = get_hf_key()
+def local_ai_model_available():
+    try:
+        response = requests.get(
+            f"{OLLAMA_URL}/api/tags",
+            timeout=3,
+        )
+        if response.status_code != 200:
+            return False
+        models = response.json().get("models", [])
+        wanted = OLLAMA_MODEL.split(":")[0].lower()
+        return any(
+            str(item.get("name", "")).lower().startswith(wanted)
+            for item in models
+        )
+    except Exception:
+        return False
+
+
+def call_ai(
+    system_prompt,
+    user_prompt,
+    temperature=0.7,
+    max_tokens=1800,
+):
+    """Local-only AI prompt generation through Ollama. No HF/API credits."""
+    try:
+        response = requests.post(
+            f"{OLLAMA_URL}/api/chat",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "stream": False,
+                "options": {
+                    "temperature": temperature,
+                    "num_predict": max_tokens,
+                },
+            },
+            timeout=300,
+        )
+
+        if response.status_code != 200:
+            return None, (
+                f"Yerel AI HTTP {response.status_code}\n"
+                f"{response.text}"
+            )
+
+        data = response.json()
+        content = (
+            data.get("message", {}).get("content", "")
+            if isinstance(data, dict)
+            else ""
+        )
+
+        content = clean_prompt(content)
+        if not content:
+            return None, "Yerel AI boş cevap döndürdü."
+
+        return content, None
+
+    except requests.exceptions.ConnectionError:
+        return None, (
+            f"Yerel AI bulunamadı: {OLLAMA_URL}. "
+            f"Ollama çalışıyor mu ve {OLLAMA_MODEL} modeli kurulu mu?"
+        )
+    except requests.exceptions.Timeout:
+        return None, "Yerel AI zaman aşımına uğradı."
+    except Exception as e:
+        return None, f"Yerel AI bağlantı hatası: {e}"
+
+
+def local_professional_prompt(
+    prompt,
+    style,
+    lighting,
+    camera,
+    quality,
+    color_mood,
+    negative_prompt,
+):
+    """Use local LLM; no cloud inference."""
+    prompt = clean_prompt(prompt)
+    user_prompt = f"""
+Original user idea:
+{prompt}
+
+Selected style:
+{clean_prompt(style)}
+
+Selected lighting:
+{clean_prompt(lighting)}
+
+Selected camera/composition:
+{clean_prompt(camera)}
+
+Selected quality:
+{clean_prompt(quality)}
+
+Selected color/mood:
+{clean_prompt(color_mood)}
+
+Negative prompt:
+{clean_prompt(negative_prompt)}
+"""
+    system_prompt = """
+You are KOGCE's professional AI image-prompt engineer.
+
+Transform the user's idea into a production-ready English prompt for a
+high-end text-to-image model.
+
+Rules:
+- If the user writes Turkish or another language, translate the intended
+  meaning into natural professional English.
+- Preserve the user's core subject, action, scene and intent.
+- Add useful visual detail: subject appearance, environment, composition,
+  camera angle, lens, lighting, materials, textures, color palette,
+  atmosphere, depth, perspective and visual fidelity.
+- Do not invent major story elements.
+- Keep the prompt coherent and directly usable by Qwen Image 2.1.
+- Return ONLY the final English prompt. No explanation and no "Prompt:" label.
+"""
+    result, error = call_ai(
+        system_prompt,
+        user_prompt,
+        temperature=0.65,
+        max_tokens=1800,
+    )
+    if error:
+        return None, error
+    return clean_prompt(result), None
 
 
 # ============================================================
 # GLOBAL STYLE
+# ============================================================
+
+
 # ============================================================
 
 st.html(
@@ -456,95 +610,9 @@ st.html(
 # AI CORE
 # ============================================================
 
-def call_ai(
-    system_prompt,
-    user_prompt,
-    temperature=0.7,
-    max_tokens=1800,
-):
-
-    if not HF_API_KEY:
-        return None, "HF_API_KEY bulunamadı."
-
-    headers = {
-        "Authorization": f"Bearer {HF_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": PROMPT_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ],
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-
-    try:
-
-        response = requests.post(
-            CHAT_URL,
-            headers=headers,
-            json=payload,
-            timeout=180,
-        )
-
-        if response.status_code != 200:
-
-            return (
-                None,
-                f"AI API hatası: {response.status_code}\n"
-                f"{response.text}",
-            )
-
-        data = response.json()
-
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-        )
-
-        if isinstance(content, list):
-
-            content = "".join(
-                item.get("text", "")
-                for item in content
-                if isinstance(item, dict)
-            )
-
-        if not content:
-
-            return None, "AI boş cevap döndürdü."
-
-        return str(content).strip(), None
-
-    except requests.exceptions.Timeout:
-
-        return None, "AI bağlantısı zaman aşımına uğradı."
-
-    except Exception as e:
-
-        return None, f"AI bağlantı hatası: {e}"
-
-
 # ============================================================
 # IMAGE PROMPT BUILDER
 # ============================================================
-
-def clean_prompt(value):
-    """Normalize prompt text so mobile/browser whitespace cannot become an empty payload."""
-    if value is None:
-        return ""
-    return " ".join(str(value).replace("\x00", " ").split()).strip()
-
 
 def build_image_prompt(
     prompt,
@@ -556,9 +624,7 @@ def build_image_prompt(
     negative_prompt,
 ):
 
-    prompt = clean_prompt(prompt)
-    negative_prompt = clean_prompt(negative_prompt)
-    parts = [prompt]
+    parts = [prompt.strip()]
 
     if style != "Automatic":
 
@@ -822,11 +888,11 @@ def generate_text_video(
     progress_bar=None,
     status_box=None,
 ):
-    """Start T2V quickly, then poll the job until a real file exists."""
     prompt = clean_prompt(prompt)
     if not prompt:
         return None, "Backend'e boş video promptu gönderilmesi engellendi."
 
+    """Start T2V quickly, then poll the job until a real file exists."""
     response, error = local_backend_request(
         "/generate-video",
         {
@@ -1078,7 +1144,7 @@ with st.sidebar:
 
     st.divider()
 
-    if HF_API_KEY:
+    if LOCAL_AI:
 
         st.success("AI SYSTEM ONLINE")
 
@@ -1327,7 +1393,7 @@ with tabs[0]:
     with col7:
 
         ai_boost = st.toggle(
-            "🤖 AI Prompt Robotu",
+            "🤖 Yerel AI Prompt Robotu",
             value=True,
         )
 
@@ -1362,11 +1428,29 @@ with tabs[0]:
         use_container_width=True,
         type="primary",
     ):
-        prompt = clean_prompt(prompt_input)
 
-        if not prompt:
+        if not prompt.strip():
+
             st.warning("Önce bir prompt gir.")
+
         else:
+
+            final_prompt = build_image_prompt(
+                prompt,
+                style,
+                lighting,
+                camera,
+                quality,
+                color_mood,
+                negative_prompt,
+            )
+
+            prompt = clean_prompt(prompt_input)
+
+            if not prompt:
+                st.warning("Önce bir prompt gir.")
+                st.stop()
+
             final_prompt = build_image_prompt(
                 prompt,
                 style,
@@ -1379,63 +1463,35 @@ with tabs[0]:
 
             if ai_boost:
                 with st.spinner(
-                    "AI Prompt Robotu fikri analiz ediyor, ayrıntılandırıyor ve İngilizce profesyonel prompta dönüştürüyor..."
+                    f"Yerel AI Prompt Robotu ({OLLAMA_MODEL}) çalışıyor..."
                 ):
-                    enhanced_prompt, ai_error = call_ai(
-                        """
-You are KOGCE's professional AI image-prompt engineer.
-
-Transform the user's idea into a production-ready English image-generation prompt.
-
-Rules:
-- If the user's input is Turkish or another non-English language, translate the intended meaning into natural professional English.
-- Preserve the user's core subject, action, scene and intended meaning.
-- Expand the idea with useful visual details: subject appearance, environment, composition, camera angle, lens language, lighting, materials, textures, color palette, atmosphere, depth, realism and visual quality.
-- Make the result specific and visually coherent.
-- Do not invent major story elements that were not requested.
-- Do not explain your process.
-- Return ONLY the final English image-generation prompt.
-- Do not add labels such as "Prompt:".
-""",
-                        f"""Original user idea:
-{prompt}
-
-Selected visual style: {style}
-Selected lighting: {lighting}
-Selected camera/composition: {camera}
-Selected quality: {quality}
-Selected color/mood: {color_mood}
-Negative prompt: {clean_prompt(negative_prompt)}
-""",
-                        temperature=0.65,
-                        max_tokens=1800,
+                    enhanced_prompt, ai_error = local_professional_prompt(
+                        prompt,
+                        style,
+                        lighting,
+                        camera,
+                        quality,
+                        color_mood,
+                        negative_prompt,
                     )
 
                 if ai_error:
-                    st.error("AI Prompt Robotu çalışamadı.")
+                    st.error("Yerel AI Prompt Robotu çalışamadı.")
                     st.code(ai_error)
                     st.stop()
 
-                enhanced_prompt = clean_prompt(enhanced_prompt)
-                if not enhanced_prompt:
-                    st.error("AI Prompt Robotu boş bir prompt döndürdü.")
-                    st.stop()
-
-                final_prompt = enhanced_prompt
-                if clean_prompt(negative_prompt):
-                    final_prompt += " Avoid: " + clean_prompt(negative_prompt) + "."
-
+                final_prompt = clean_prompt(enhanced_prompt)
                 st.session_state.last_enhanced_prompt = final_prompt
 
                 with st.expander(
-                    "AI tarafından oluşturulan profesyonel İngilizce prompt",
+                    "Yerel AI tarafından oluşturulan profesyonel İngilizce prompt",
                     expanded=True,
                 ):
                     st.code(final_prompt, language="text")
 
             final_prompt = clean_prompt(final_prompt)
             if not final_prompt:
-                st.error("Üretim promptu boş oluştu. İşlem başlatılmadı.")
+                st.error("Üretim promptu boş oluştu.")
                 st.stop()
 
             if not LOCAL_BACKEND_URL:
@@ -1782,7 +1838,6 @@ with tabs[2]:
                 "cinematic camera movement..."
             ),
             height=160,
-            key="video_prompt_input",
         )
 
         col1, col2, col3 = st.columns(3)
@@ -1957,7 +2012,6 @@ with tabs[2]:
                 "slow cinematic camera tracking..."
             ),
             height=150,
-            key="motion_prompt_input",
         )
 
         col1, col2 = st.columns(2)
@@ -2117,7 +2171,6 @@ with tabs[3]:
             "Fikrin",
             height=150,
             placeholder="Kısa fikrini yaz...",
-            key="ai_prompt_robot_idea",
         )
 
         if st.button(
@@ -2139,15 +2192,21 @@ with tabs[3]:
 
                     result, error = call_ai(
                         """
-You are KOGCE's professional AI image-prompt engineer.
+You are an expert professional image-generation prompt engineer.
 
-Transform the user's idea into a production-ready English image-generation prompt.
-If the input is Turkish or another language, translate the intended meaning into natural professional English first.
-Then enrich it with relevant visual information: subject and appearance, action, environment, composition, camera angle, lens language, lighting, materials, textures, colors, atmosphere, depth, realism, visual consistency and image quality.
-Preserve the user's intended meaning. Do not invent major story elements.
-Do not explain the process. Return ONLY the final English prompt. Do not add a "Prompt:" label.
+Transform the user's idea into an extremely detailed but coherent
+English image-generation prompt.
+
+Include:
+subject, appearance, environment, composition, camera,
+lens, lighting, materials, textures, colors, atmosphere,
+depth, realism and visual quality.
+
+Preserve the user's intended meaning.
+Do not invent major story elements.
+Return only the final prompt.
 """,
-                        clean_prompt(idea),
+                        idea,
                         temperature=0.75,
                         max_tokens=1800,
                     )
@@ -2548,8 +2607,8 @@ with tabs[5]:
     with col1:
 
         st.metric(
-            "HF API",
-            "ONLINE" if HF_API_KEY else "MISSING",
+            "Local AI",
+            "ONLINE" if local_ai_available() else "OFFLINE",
         )
 
     with col2:
@@ -2588,11 +2647,11 @@ with tabs[5]:
     )
 
     st.subheader(
-        "Prompt Modeli"
+        "Yerel Prompt Modeli"
     )
 
     st.code(
-        PROMPT_MODEL
+        OLLAMA_MODEL
     )
 
     st.subheader(
