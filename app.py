@@ -4,7 +4,6 @@ import requests
 import streamlit as st
 
 from PIL import Image
-from huggingface_hub import InferenceClient
 
 
 # ============================================================
@@ -1877,6 +1876,9 @@ with tabs[2]:
                     f"Natural realistic motion and consistent subject appearance."
                 )
 
+                progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                status_box = st.empty()
+
                 with st.spinner(
                     "Wan 2.1 video oluşturuyor..."
                 ):
@@ -1885,6 +1887,8 @@ with tabs[2]:
                         final_video_prompt,
                         num_frames=num_frames,
                         steps=steps,
+                        progress_bar=progress,
+                        status_box=status_box,
                     )
 
                 if error:
@@ -2018,6 +2022,9 @@ with tabs[2]:
 
                         frames = 49
 
+                    progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                    status_box = st.empty()
+
                     with st.spinner(
                         "Wan 2.1 görseli videoya dönüştürüyor..."
                     ):
@@ -2027,6 +2034,8 @@ with tabs[2]:
                             motion_prompt,
                             num_frames=frames,
                             steps=video_steps,
+                            progress_bar=progress,
+                            status_box=status_box,
                         )
 
                     if error:
