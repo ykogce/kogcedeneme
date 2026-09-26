@@ -24,6 +24,9 @@ LOCAL_BACKEND_URL = st.secrets.get(
 
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
+# Tulpar / ComfyUI GPU üretimleri 45 saniyeden uzun sürebilir.
+GENERATION_TIMEOUT = 1800  # 30 dakika
+
 
 # ============================================================
 # PAGE CONFIG
@@ -591,38 +594,61 @@ def build_image_prompt(
 
 
 # ============================================================
-# IMAGE GENERATION
+# IMAGE GENERATION — TULPAR / COMFYUI
 # ============================================================
 
 def generate_image(
     prompt,
     width,
     height,
+    seed=None,
 ):
+    """Tulpar üzerindeki Qwen Image 2.1 ile görsel üretir."""
 
-    if not HF_API_KEY:
+    if not LOCAL_BACKEND_URL:
+        return None, "Tulpar backend adresi tanımlanmamış."
 
-        return None, "HF_API_KEY bulunamadı."
+    payload = {
+        "prompt": str(prompt),
+        "width": int(width),
+        "height": int(height),
+    }
+
+    if seed is not None:
+        payload["seed"] = int(seed)
+
+    response, error = local_backend_request(
+        "/generate-image",
+        payload,
+        timeout=GENERATION_TIMEOUT,
+    )
+
+    if error:
+        return None, error
 
     try:
+        data = response.json()
 
-        client = InferenceClient(
-            provider="auto",
-            api_key=HF_API_KEY,
-        )
+        image_b64 = data.get("image")
+        if image_b64:
+            import base64
+            if image_b64.startswith("data:image"):
+                image_b64 = image_b64.split(",", 1)[1]
+            image_bytes = base64.b64decode(image_b64)
+            return Image.open(io.BytesIO(image_bytes)).convert("RGB"), None
 
-        image = client.text_to_image(
-            prompt=prompt,
-            model=IMAGE_MODEL,
-            width=width,
-            height=height,
-        )
+        if data.get("download_url"):
+            url = data["download_url"]
+            if url.startswith("/"):
+                url = LOCAL_BACKEND_URL.rstrip("/") + url
+            result = requests.get(url, timeout=180)
+            result.raise_for_status()
+            return Image.open(io.BytesIO(result.content)).convert("RGB"), None
 
-        return image, None
+        return None, "Tulpar image sonucu geçersiz:\n" + str(data)
 
     except Exception as e:
-
-        return None, str(e)
+        return None, f"Görsel sonucu okunamadı: {e}"
 
 
 # ============================================================
@@ -653,7 +679,7 @@ def local_backend_request(
     endpoint,
     payload,
     files=None,
-    timeout=30,
+    timeout=GENERATION_TIMEOUT,
 ):
 
     if not LOCAL_BACKEND_URL:
@@ -726,7 +752,7 @@ def generate_text_video(
             "num_frames": int(num_frames),
             "steps": int(steps),
         },
-        timeout=45,
+        timeout=GENERATION_TIMEOUT,
     )
 
     if error:
@@ -811,7 +837,7 @@ def generate_image_video(
             "steps": str(steps),
         },
         files=files,
-        timeout=45,
+        timeout=GENERATION_TIMEOUT,
     )
 
     if error:
@@ -906,7 +932,7 @@ def generate_character_image(
         "/character-edit",
         payload,
         files=files,
-        timeout=45,
+        timeout=GENERATION_TIMEOUT,
     )
 
     if error:
@@ -1068,7 +1094,7 @@ with st.sidebar:
 
     st.markdown("### Üretim Motorları")
 
-    st.caption("✦ FLUX Görsel")
+    st.caption("✦ Qwen Image 2.1 Görsel")
     st.caption("✦ AI Prompt Robotu")
     st.caption("✦ Karakter Stüdyosu")
     st.caption("✦ Tulpar / ComfyUI")
@@ -1429,14 +1455,18 @@ NEGATIVE:
                             language="text",
                         )
 
-            with st.spinner(
-                "Görsel oluşturuluyor..."
-            ):
+            if not LOCAL_BACKEND_URL:
+                st.warning("Tulpar backend adresi tanımlanmamış.")
+                st.stop()
 
+            with st.spinner(
+                "Qwen Image 2.1 / Tulpar görsel oluşturuyor..."
+            ):
                 image, error = generate_image(
                     final_prompt,
                     width,
                     height,
+                    seed=seed,
                 )
 
             if error:
@@ -2532,7 +2562,7 @@ with tabs[5]:
 
         st.metric(
             "Image",
-            "FLUX",
+            "QWEN 2.1",
         )
 
     with col3:
@@ -2560,7 +2590,7 @@ with tabs[5]:
     )
 
     st.code(
-        IMAGE_MODEL
+        "Comfy-Org/Qwen-Image-2.1 • Tulpar / ComfyUI"
     )
 
     st.subheader(
