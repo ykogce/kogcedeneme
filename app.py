@@ -5,6 +5,7 @@ import requests
 import streamlit as st
 
 from PIL import Image
+from huggingface_hub import InferenceClient
 
 
 # ============================================================
@@ -13,15 +14,16 @@ from PIL import Image
 
 APP_PASSWORD = "1234"
 
-# Local model labels (no Hugging Face / cloud inference)
-IMAGE_MODEL = "Qwen Image 2.1 — Tulpar / ComfyUI"
-PROMPT_MODEL = "Local Prompt Robot — rule-based + optional Ollama"
+PROMPT_MODEL = "openai/gpt-oss-120b"
+IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 
 # Tulpar / ComfyUI backend
 LOCAL_BACKEND_URL = st.secrets.get(
     "LOCAL_BACKEND_URL",
     ""
 ).strip()
+
+CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
 
 # ============================================================
@@ -60,6 +62,15 @@ for key, value in defaults.items():
 # ============================================================
 # HUGGING FACE
 # ============================================================
+
+def get_hf_key():
+    try:
+        return st.secrets["HF_API_KEY"]
+    except Exception:
+        return None
+
+
+HF_API_KEY = get_hf_key()
 
 
 # ============================================================
@@ -444,134 +455,83 @@ st.html(
 # AI CORE
 # ============================================================
 
-def clean_prompt(value):
-    """Normalize prompt text, including text arriving from mobile browsers."""
-    if value is None:
-        return ""
-    return " ".join(str(value).replace("\x00", " ").split()).strip()
+def call_ai(
+    system_prompt,
+    user_prompt,
+    temperature=0.7,
+    max_tokens=1800,
+):
 
+    if not HF_API_KEY:
+        return None, "HF_API_KEY bulunamadı."
 
-def local_prompt_robot(prompt, style, lighting, camera, quality, color_mood, negative_prompt):
-    """
-    Convert the user's short Turkish/mixed-language idea into a clean,
-    production-oriented English image prompt without any cloud API.
-
-    If Ollama is available locally, it is used for richer rewriting.
-    Otherwise a deterministic translation/expansion fallback is used.
-    """
-    prompt = clean_prompt(prompt)
-    if not prompt:
-        return ""
-
-    # First try the user's own local LLM, if Ollama is installed/running.
-    # This never contacts Hugging Face or any cloud inference provider.
-    try:
-        ollama_payload = {
-            "model": "qwen2.5:3b",
-            "stream": False,
-            "options": {"temperature": 0.25, "num_predict": 700},
-            "prompt": f"""You are a professional image-generation prompt engineer.
-Rewrite the user's idea as ONE polished English prompt for a modern text-to-image model.
-Translate Turkish into natural English. Preserve the exact subject and action.
-Do not add unrelated story elements. Make the scene concrete and visually coherent.
-Include subject appearance, action, environment, composition, camera, lighting, depth,
-and visual quality when useful. Return ONLY the final English prompt, no headings and no explanation.
-
-User idea: {prompt}
-Style: {style}
-Lighting: {lighting}
-Camera: {camera}
-Quality: {quality}
-Color/Mood: {color_mood}
-Negative prompt: {negative_prompt}
-""",
-        }
-        r = requests.post(
-            "http://127.0.0.1:11434/api/generate",
-            json=ollama_payload,
-            timeout=20,
-        )
-        if r.ok:
-            result = clean_prompt(r.json().get("response", ""))
-            if result:
-                if not result.lower().startswith(("professional image-generation prompt", "image-generation prompt")):
-                    return result + (f" Avoid: {clean_prompt(negative_prompt)}." if clean_prompt(negative_prompt) else "")
-                return result
-    except Exception:
-        pass
-
-    # Deterministic local fallback. It is intentionally phrase-aware so a
-    # short Turkish input is not simply concatenated with English boilerplate.
-    phrase_replacements = {
-        "zombilerden kaçan": "running away from zombies",
-        "zombilerden kaçıyor": "running away from zombies",
-        "zombilerden kaçan sevimli": "a cute character running away from zombies",
-        "sevimli gri kedi": "a cute gray cat",
-        "gri kedi": "a gray cat",
-        "sevimli kedi": "a cute cat",
-        "kaçan": "running away",
-        "kaçıyor": "is running away",
-        "koşuyor": "is running",
-        "koşan": "running",
-        "yürüyor": "is walking",
-        "yürüyen": "walking",
-        "oturuyor": "is sitting",
-        "oturan": "sitting",
-        "ayakta duran": "standing",
-        "zombiler": "zombies",
-        "zombi": "zombie",
-        "sevimli": "cute",
-        "gri": "gray",
-        "kedi": "cat",
-        "köpek": "dog",
-        "araba": "car",
-        "otomobil": "car",
-        "kırmızı": "red",
-        "mavi": "blue",
-        "siyah": "black",
-        "beyaz": "white",
-        "yeşil": "green",
-        "sarı": "yellow",
-        "gerçekçi": "photorealistic",
-        "fotogerçekçi": "photorealistic",
-        "sinematik": "cinematic",
-        "detaylı": "highly detailed",
-        "çok detaylı": "highly detailed",
-        "gece": "at night",
-        "gündüz": "during daytime",
-        "yağmur": "rainy",
-        "karlı": "snowy",
-        "kar": "snow",
-        "deniz": "sea",
-        "sahil": "seaside",
-        "plaj": "beach",
-        "şehir": "city",
-        "sokak": "street",
-        "kadın": "woman",
-        "adam": "man",
-        "erkek": "man",
-        "çocuk": "child",
-        "mutlu": "happy",
-        "üzgün": "sad",
-        "gülümseyen": "smiling",
+    headers = {
+        "Authorization": f"Bearer {HF_API_KEY}",
+        "Content-Type": "application/json",
     }
 
-    translated = prompt
-    for tr, en in sorted(phrase_replacements.items(), key=lambda x: len(x[0]), reverse=True):
-        translated = re.sub(rf"(?<!\w){re.escape(tr)}(?!\w)", en, translated, flags=re.IGNORECASE)
+    payload = {
+        "model": PROMPT_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": user_prompt,
+            },
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
 
-    translated = clean_prompt(translated)
-    parts = [translated]
-    if style != "Automatic": parts.append(f"Visual style: {style}.")
-    if lighting != "Automatic": parts.append(f"Lighting: {lighting}.")
-    if camera != "Automatic": parts.append(f"Camera and composition: {camera}.")
-    if quality != "Automatic": parts.append(f"Image quality: {quality}.")
-    if color_mood != "Automatic": parts.append(f"Color and mood: {color_mood}.")
-    parts.append("Professional commercial image, coherent composition, natural perspective, clear subject hierarchy, realistic depth, physically plausible lighting, detailed materials and textures, consistent subject anatomy, high visual fidelity.")
-    neg = clean_prompt(negative_prompt)
-    if neg:
-        parts.append(f"Avoid: {neg}.")
-    return clean_prompt(" ".join(parts))
+    try:
+
+        response = requests.post(
+            CHAT_URL,
+            headers=headers,
+            json=payload,
+            timeout=180,
+        )
+
+        if response.status_code != 200:
+
+            return (
+                None,
+                f"AI API hatası: {response.status_code}\n"
+                f"{response.text}",
+            )
+
+        data = response.json()
+
+        content = (
+            data.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+        )
+
+        if isinstance(content, list):
+
+            content = "".join(
+                item.get("text", "")
+                for item in content
+                if isinstance(item, dict)
+            )
+
+        if not content:
+
+            return None, "AI boş cevap döndürdü."
+
+        return str(content).strip(), None
+
+    except requests.exceptions.Timeout:
+
+        return None, "AI bağlantısı zaman aşımına uğradı."
+
+    except Exception as e:
+
+        return None, f"AI bağlantı hatası: {e}"
 
 
 # ============================================================
@@ -635,32 +595,87 @@ def build_image_prompt(
 # IMAGE GENERATION
 # ============================================================
 
-def generate_image(prompt, width, height):
-    prompt = clean_prompt(prompt)
+def generate_image(
+    prompt,
+    width,
+    height,
+):
+
+    # KOGCE'nin yerel backend'i /generate-image endpoint'i
+    # JSON değil FORM DATA bekliyor.
+    if not LOCAL_BACKEND_URL:
+        return None, "Tulpar backend adresi tanımlanmamış."
+
+    prompt = str(prompt or "").strip()
+
     if not prompt:
-        return None, "Backend'e boş prompt gönderilmesi engellendi."
-    response, error = local_backend_request(
-        "/generate-image",
-        {"prompt": prompt, "width": int(width), "height": int(height)},
-        timeout=180,
-    )
-    if error:
-        return None, error
+        return None, "Prompt boş."
+
     try:
+        response = requests.post(
+            f"{LOCAL_BACKEND_URL.rstrip('/')}/generate-image",
+            data={
+                "prompt": prompt,
+                "width": int(width),
+                "height": int(height),
+            },
+            timeout=900,
+        )
+
+        if response.status_code != 200:
+            return (
+                None,
+                f"Backend HTTP {response.status_code}\n"
+                f"{response.text[:4000]}",
+            )
+
+        # Backend bazı sürümlerde doğrudan görsel byte'ı,
+        # bazı sürümlerde JSON içindeki base64/download_url döndürebilir.
+        content_type = response.headers.get("content-type", "").lower()
+
+        if content_type.startswith("image/"):
+            return Image.open(io.BytesIO(response.content)).convert("RGB"), None
+
         data = response.json()
+
         if "image" in data:
             import base64
-            raw = data["image"]
-            if isinstance(raw, str):
-                return Image.open(io.BytesIO(base64.b64decode(raw))).convert("RGBA"), None
+
+            image_data = data["image"]
+            if isinstance(image_data, str):
+                if image_data.startswith("data:image") and "," in image_data:
+                    image_data = image_data.split(",", 1)[1]
+                raw = base64.b64decode(image_data)
+                return Image.open(io.BytesIO(raw)).convert("RGB"), None
+
         if "download_url" in data:
-            url = data["download_url"]
-            if url.startswith("/"):
-                url = LOCAL_BACKEND_URL.rstrip("/") + url
-            r = requests.get(url, timeout=180)
-            r.raise_for_status()
-            return Image.open(io.BytesIO(r.content)).convert("RGBA"), None
-        return None, f"Tulpar backend geçerli görsel sonucu döndürmedi.\n\n{data}"
+            download_url = data["download_url"]
+            if download_url.startswith("/"):
+                download_url = LOCAL_BACKEND_URL.rstrip("/") + download_url
+
+            image_response = requests.get(
+                download_url,
+                timeout=180,
+            )
+
+            if image_response.status_code == 200:
+                return (
+                    Image.open(io.BytesIO(image_response.content)).convert("RGB"),
+                    None,
+                )
+
+        return (
+            None,
+            "Tulpar backend geçerli görsel sonucu döndürmedi.\n\n"
+            f"{data}",
+        )
+
+    except requests.exceptions.Timeout:
+        return None, "Tulpar backend görsel üretiminde zaman aşımına uğradı."
+
+    except requests.exceptions.RequestException as e:
+        return None, f"Tulpar bağlantı hatası: {e}"
+
     except Exception as e:
         return None, f"Görsel sonucu okunamadı: {e}"
 
@@ -1098,13 +1113,13 @@ with st.sidebar:
 
     st.divider()
 
-    if LOCAL_BACKEND_URL:
+    if HF_API_KEY:
 
-        st.success("LOCAL AI SYSTEM ONLINE")
+        st.success("AI SYSTEM ONLINE")
 
     else:
 
-        st.info("LOCAL AI / TULPAR")
+        st.warning("HF KEY MISSING")
 
     st.markdown("### Üretim Motorları")
 
@@ -1211,14 +1226,13 @@ with tabs[0]:
         """
     )
 
-    prompt_input = st.text_area(
+    prompt = st.text_area(
         "Ana Prompt",
         placeholder=(
             "Örneğin: A man walking alone through an empty "
             "rainy street at night..."
         ),
         height=145,
-        key="image_prompt_input",
     )
 
     col1, col2, col3 = st.columns(3)
@@ -1383,12 +1397,12 @@ with tabs[0]:
         type="primary",
     ):
 
-        prompt = clean_prompt(prompt_input)
+        if not prompt.strip():
 
-        if not prompt:
             st.warning("Önce bir prompt gir.")
 
         else:
+
             final_prompt = build_image_prompt(
                 prompt,
                 style,
@@ -1400,21 +1414,75 @@ with tabs[0]:
             )
 
             if ai_boost:
-                with st.spinner("Yerel AI Prompt Robotu promptu hazırlıyor..."):
-                    final_prompt = local_prompt_robot(
-                        prompt,
-                        style,
-                        lighting,
-                        camera,
-                        quality,
-                        color_mood,
-                        negative_prompt,
+
+                with st.spinner(
+                    "AI Prompt Robotu görseli hazırlıyor..."
+                ):
+
+                    enhanced_prompt, error = call_ai(
+                        """
+You are an expert professional image-generation prompt engineer.
+
+Transform the user's idea and the supplied visual settings into ONE
+high-quality English image-generation prompt.
+
+IMPORTANT:
+- Preserve the user's subject and intended meaning.
+- Respect every supplied style, lighting, camera, quality and mood choice.
+- Do not invent major story elements.
+- Make the composition visually coherent.
+- Describe realistic details where appropriate.
+- Return ONLY the final prompt.
+""",
+                        f"""
+USER IDEA:
+{prompt}
+
+STYLE:
+{style}
+
+LIGHTING:
+{lighting}
+
+CAMERA:
+{camera}
+
+QUALITY:
+{quality}
+
+COLOR / MOOD:
+{color_mood}
+
+NEGATIVE:
+{negative_prompt}
+""",
+                        temperature=0.7,
+                        max_tokens=1800,
                     )
 
-                st.session_state.last_enhanced_prompt = final_prompt
+                if error:
 
-                with st.expander("Profesyonel İngilizce prompt", expanded=True):
-                    st.code(final_prompt, language="text")
+                    st.error(error)
+
+                    enhanced_prompt = None
+
+                if enhanced_prompt:
+
+                    final_prompt = enhanced_prompt
+
+                    st.session_state.last_enhanced_prompt = (
+                        enhanced_prompt
+                    )
+
+                    with st.expander(
+                        "AI tarafından oluşturulan final prompt",
+                        expanded=True,
+                    ):
+
+                        st.code(
+                            enhanced_prompt,
+                            language="text",
+                        )
 
             with st.spinner(
                 "Görsel oluşturuluyor..."
@@ -2511,15 +2579,15 @@ with tabs[5]:
     with col1:
 
         st.metric(
-            "Local AI",
-            "ONLINE" if LOCAL_BACKEND_URL else "OFFLINE",
+            "HF API",
+            "ONLINE" if HF_API_KEY else "MISSING",
         )
 
     with col2:
 
         st.metric(
             "Image",
-            "Qwen Image 2.1",
+            "FLUX",
         )
 
     with col3:
