@@ -602,51 +602,50 @@ def generate_image(
     width,
     height,
     seed=None,
+    progress_bar=None,
+    status_box=None,
 ):
-    """Tulpar üzerindeki Qwen Image 2.1 ile görsel üretir."""
-
-    if not LOCAL_BACKEND_URL:
-        return None, "Tulpar backend adresi tanımlanmamış."
-
+    """Tulpar üzerindeki Qwen Image 2.1 ile gerçek job polling kullanarak görsel üretir."""
     payload = {
         "prompt": str(prompt),
         "width": int(width),
         "height": int(height),
     }
-
     if seed is not None:
         payload["seed"] = int(seed)
 
     response, error = local_backend_request(
         "/generate-image",
         payload,
-        timeout=GENERATION_TIMEOUT,
+        timeout=30,
     )
-
     if error:
         return None, error
 
     try:
         data = response.json()
+    except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
-        image_b64 = data.get("image")
-        if image_b64:
-            import base64
-            if image_b64.startswith("data:image"):
-                image_b64 = image_b64.split(",", 1)[1]
-            image_bytes = base64.b64decode(image_b64)
-            return Image.open(io.BytesIO(image_bytes)).convert("RGB"), None
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
 
-        if data.get("download_url"):
-            url = data["download_url"]
-            if url.startswith("/"):
-                url = LOCAL_BACKEND_URL.rstrip("/") + url
-            result = requests.get(url, timeout=180)
-            result.raise_for_status()
-            return Image.open(io.BytesIO(result.content)).convert("RGB"), None
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
 
-        return None, "Tulpar image sonucu geçersiz:\n" + str(data)
+    raw, error = download_backend_result(result)
+    if error:
+        return None, error
 
+    try:
+        return Image.open(io.BytesIO(raw)).convert("RGB"), None
     except Exception as e:
         return None, f"Görsel sonucu okunamadı: {e}"
 
@@ -679,33 +678,29 @@ def local_backend_request(
     endpoint,
     payload,
     files=None,
-    timeout=GENERATION_TIMEOUT,
+    timeout=30,
 ):
+    """Send only short-lived requests to Tulpar.
 
+    Long GPU jobs are handled through job_id + polling so Cloudflare
+    Quick Tunnel never has to keep one HTTP request open for minutes.
+    """
     if not LOCAL_BACKEND_URL:
-
         return None, (
             "Tulpar backend adresi henüz tanımlanmamış."
         )
 
     try:
-
-        url = (
-            LOCAL_BACKEND_URL.rstrip("/")
-            + endpoint
-        )
+        url = LOCAL_BACKEND_URL.rstrip('/') + endpoint
 
         if files:
-
             response = requests.post(
                 url,
                 data=payload,
                 files=files,
                 timeout=timeout,
             )
-
         else:
-
             response = requests.post(
                 url,
                 json=payload,
@@ -713,7 +708,6 @@ def local_backend_request(
             )
 
         if response.status_code != 200:
-
             return (
                 None,
                 f"Backend HTTP {response.status_code}\n"
@@ -723,16 +717,86 @@ def local_backend_request(
         return response, None
 
     except requests.exceptions.Timeout:
-
-        return None, "Tulpar backend zaman aşımına uğradı."
-
+        return None, "Tulpar backend başlangıç isteği zaman aşımına uğradı."
     except requests.exceptions.RequestException as e:
-
         return None, f"Tulpar bağlantı hatası: {e}"
-
     except Exception as e:
-
         return None, str(e)
+
+
+def poll_backend_job(job_id, progress_bar=None, status_box=None, timeout=1800):
+    """Poll a Tulpar job with short HTTP requests until it really finishes."""
+    if not LOCAL_BACKEND_URL:
+        return None, "Tulpar backend adresi tanımlanmamış."
+
+    started = time.time()
+    last_progress = -1
+
+    while True:
+        if time.time() - started > timeout:
+            return None, "Tulpar üretimi izin verilen maksimum süreyi aştı."
+
+        try:
+            response = requests.get(
+                f"{LOCAL_BACKEND_URL.rstrip('/')}/progress/{job_id}",
+                timeout=15,
+            )
+
+            if response.status_code != 200:
+                return None, (
+                    f"Tulpar job durumu HTTP {response.status_code}\n"
+                    f"{response.text[:2000]}"
+                )
+
+            data = response.json()
+            progress = int(data.get("progress", 0) or 0)
+            status = str(data.get("status", ""))
+            message = str(data.get("message", "Üretim devam ediyor..."))
+
+            if progress_bar is not None and progress != last_progress:
+                progress_bar.progress(
+                    max(0.0, min(1.0, progress / 100.0)),
+                    text=f"%{progress} — {message}",
+                )
+                last_progress = progress
+
+            if status_box is not None:
+                status_box.caption(message)
+
+            if status == "completed":
+                if progress_bar is not None:
+                    progress_bar.progress(1.0, text="%100 — Üretim tamamlandı")
+                return data, None
+
+            if status == "error":
+                return None, data.get("error") or message or "Tulpar üretim hatası."
+
+        except requests.exceptions.RequestException as e:
+            # A single polling failure is not a generation failure.
+            # Retry because the GPU job itself may still be running.
+            if status_box is not None:
+                status_box.caption(f"Tulpar durum bağlantısı yeniden deneniyor... ({e})")
+
+        time.sleep(1.0)
+
+
+def download_backend_result(data):
+    """Download a completed Tulpar output using its short-lived URL."""
+    download_url = data.get("download_url")
+    if not download_url:
+        return None, "Tulpar tamamlandı ancak download_url döndürmedi."
+
+    if download_url.startswith("/"):
+        download_url = LOCAL_BACKEND_URL.rstrip("/") + download_url
+
+    try:
+        response = requests.get(download_url, timeout=60)
+        response.raise_for_status()
+        if not response.content:
+            return None, "Tulpar boş bir çıktı dosyası döndürdü."
+        return response.content, None
+    except requests.exceptions.RequestException as e:
+        return None, f"Tulpar çıktı dosyası alınamadı: {e}"
 
 
 # ============================================================
@@ -743,8 +807,10 @@ def generate_text_video(
     prompt,
     num_frames=33,
     steps=20,
+    progress_bar=None,
+    status_box=None,
 ):
-
+    """Start T2V quickly, then poll the job until a real file exists."""
     response, error = local_backend_request(
         "/generate-video",
         {
@@ -752,62 +818,31 @@ def generate_text_video(
             "num_frames": int(num_frames),
             "steps": int(steps),
         },
-        timeout=GENERATION_TIMEOUT,
+        timeout=30,
     )
 
     if error:
-
         return None, error
 
     try:
-
         data = response.json()
-
-        if "video" in data:
-
-            video = data["video"]
-
-            if isinstance(video, str):
-
-                import base64
-
-                return (
-                    base64.b64decode(video),
-                    None,
-                )
-
-        if "download_url" in data:
-
-            download_url = data["download_url"]
-
-            if download_url.startswith("/"):
-
-                download_url = (
-                    LOCAL_BACKEND_URL.rstrip("/")
-                    + download_url
-                )
-
-            video_response = requests.get(
-                download_url,
-                timeout=180,
-            )
-
-            if video_response.status_code == 200:
-
-                return (
-                    video_response.content,
-                    None,
-                )
-
-        return (
-            None,
-            "Tulpar backend geçerli video sonucu döndürmedi.\n\n"
-            f"{data}",
-        )
-
     except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
-        return None, f"Video sonucu okunamadı: {e}"
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
+
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
+
+    return download_backend_result(result)
 
 
 # ============================================================
@@ -819,8 +854,9 @@ def generate_image_video(
     prompt,
     num_frames=33,
     steps=20,
+    progress_bar=None,
+    status_box=None,
 ):
-
     files = {
         "image": (
             "reference.png",
@@ -837,57 +873,31 @@ def generate_image_video(
             "steps": str(steps),
         },
         files=files,
-        timeout=GENERATION_TIMEOUT,
+        timeout=30,
     )
 
     if error:
-
         return None, error
 
     try:
-
         data = response.json()
-
-        if "video" in data:
-
-            import base64
-
-            return (
-                base64.b64decode(data["video"]),
-                None,
-            )
-
-        if "download_url" in data:
-
-            download_url = data["download_url"]
-
-            if download_url.startswith("/"):
-
-                download_url = (
-                    LOCAL_BACKEND_URL.rstrip("/")
-                    + download_url
-                )
-
-            video_response = requests.get(
-                download_url,
-                timeout=180,
-            )
-
-            if video_response.status_code == 200:
-
-                return (
-                    video_response.content,
-                    None,
-                )
-
-        return (
-            None,
-            f"Tulpar video sonucu geçersiz:\n{data}",
-        )
-
     except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
-        return None, f"Video sonucu okunamadı: {e}"
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
+
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
+
+    return download_backend_result(result)
 
 
 # ============================================================
@@ -902,14 +912,11 @@ def generate_character_image(
     preserve_face,
     preserve_body,
     preserve_clothes,
+    progress_bar=None,
+    status_box=None,
 ):
-
     if not LOCAL_BACKEND_URL:
-
-        return (
-            None,
-            "Karakter motoru henüz Tulpar backend'e bağlanmadı."
-        )
+        return None, "Karakter motoru henüz Tulpar backend'e bağlanmadı."
 
     files = {
         "image": (
@@ -918,7 +925,6 @@ def generate_character_image(
             "image/png",
         )
     }
-
     payload = {
         "instruction": instruction,
         "style": style,
@@ -932,64 +938,36 @@ def generate_character_image(
         "/character-edit",
         payload,
         files=files,
-        timeout=GENERATION_TIMEOUT,
+        timeout=30,
     )
-
     if error:
-
         return None, error
 
     try:
-
         data = response.json()
-
-        if "image" in data:
-
-            import base64
-
-            return (
-                Image.open(
-                    io.BytesIO(
-                        base64.b64decode(data["image"])
-                    )
-                ),
-                None,
-            )
-
-        if "download_url" in data:
-
-            url = data["download_url"]
-
-            if url.startswith("/"):
-
-                url = (
-                    LOCAL_BACKEND_URL.rstrip("/")
-                    + url
-                )
-
-            result = requests.get(
-                url,
-                timeout=180,
-            )
-
-            if result.status_code == 200:
-
-                return (
-                    Image.open(
-                        io.BytesIO(
-                            result.content
-                        )
-                    ),
-                    None,
-                )
-
-        return (
-            None,
-            f"Karakter backend sonucu geçersiz:\n{data}",
-        )
-
     except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
+
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
+
+    raw, error = download_backend_result(result)
+    if error:
+        return None, error
+
+    try:
+        return Image.open(io.BytesIO(raw)).convert("RGB"), None
+    except Exception as e:
         return None, f"Karakter sonucu okunamadı: {e}"
 
 
@@ -1459,6 +1437,8 @@ NEGATIVE:
                 st.warning("Tulpar backend adresi tanımlanmamış.")
                 st.stop()
 
+            progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+            status_box = st.empty()
             with st.spinner(
                 "Qwen Image 2.1 / Tulpar görsel oluşturuyor..."
             ):
@@ -1467,6 +1447,8 @@ NEGATIVE:
                     width,
                     height,
                     seed=seed,
+                    progress_bar=progress,
+                    status_box=status_box,
                 )
 
             if error:
