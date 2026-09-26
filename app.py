@@ -1,11 +1,10 @@
 import io
 import time
-import re
 import requests
+import re
 import streamlit as st
 
 from PIL import Image
-from huggingface_hub import InferenceClient
 
 
 # ============================================================
@@ -24,6 +23,9 @@ LOCAL_BACKEND_URL = st.secrets.get(
 ).strip()
 
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
+
+# Tulpar / ComfyUI GPU üretimleri 45 saniyeden uzun sürebilir.
+GENERATION_TIMEOUT = 1800  # 30 dakika
 
 
 # ============================================================
@@ -535,6 +537,114 @@ def call_ai(
 
 
 # ============================================================
+# LOCAL PROMPT ROBOT — NO HUGGING FACE
+# ============================================================
+
+def clean_prompt(value):
+    if value is None:
+        return ""
+    return " ".join(str(value).replace("\x00", " ").split()).strip()
+
+
+def local_prompt_robot(prompt, style, lighting, camera, quality, color_mood, negative_prompt):
+    """
+    Convert a short Turkish/mixed-language idea into a polished English
+    image-generation prompt without using Hugging Face or any paid API.
+    """
+    prompt = clean_prompt(prompt)
+    if not prompt:
+        return ""
+
+    phrase_replacements = {
+        "zombilerden kaçan sevimli gri kedi": "a cute gray cat running away from zombies",
+        "zombilerden kaçan sevimli gri cat": "a cute gray cat running away from zombies",
+        "zombilerden kaçan": "running away from zombies",
+        "zombilerden kaçıyor": "running away from zombies",
+        "zombiler": "zombies",
+        "zombi": "zombie",
+        "sevimli gri kedi": "a cute gray cat",
+        "gri kedi": "a gray cat",
+        "sevimli kedi": "a cute cat",
+        "sevimli köpek": "a cute dog",
+        "kaçan": "running away",
+        "kaçıyor": "is running away",
+        "koşuyor": "is running",
+        "koşan": "running",
+        "yürüyor": "is walking",
+        "yürüyen": "walking",
+        "oturuyor": "is sitting",
+        "oturan": "sitting",
+        "ayakta duran": "standing",
+        "ayakta": "standing",
+        "sevimli": "cute",
+        "gri": "gray",
+        "kedi": "cat",
+        "köpek": "dog",
+        "araba": "car",
+        "otomobil": "car",
+        "kırmızı": "red",
+        "mavi": "blue",
+        "siyah": "black",
+        "beyaz": "white",
+        "yeşil": "green",
+        "sarı": "yellow",
+        "gerçekçi": "photorealistic",
+        "fotogerçekçi": "photorealistic",
+        "sinematik": "cinematic",
+        "detaylı": "highly detailed",
+        "çok detaylı": "highly detailed",
+        "gece": "at night",
+        "gündüz": "during daytime",
+        "yağmur": "rainy",
+        "karlı": "snowy",
+        "kar": "snow",
+        "deniz": "sea",
+        "sahil": "seaside",
+        "plaj": "beach",
+        "şehir": "city",
+        "sokak": "street",
+        "kadın": "woman",
+        "adam": "man",
+        "erkek": "man",
+        "çocuk": "child",
+        "mutlu": "happy",
+        "üzgün": "sad",
+        "gülümseyen": "smiling",
+    }
+
+    translated = prompt
+    for tr, en in sorted(phrase_replacements.items(), key=lambda x: len(x[0]), reverse=True):
+        translated = re.sub(rf"(?<!\w){re.escape(tr)}(?!\w)", en, translated, flags=re.IGNORECASE)
+
+    translated = clean_prompt(translated)
+    parts = [translated]
+
+    if style != "Automatic":
+        parts.append(f"Visual style: {style}.")
+    if lighting != "Automatic":
+        parts.append(f"Lighting: {lighting}.")
+    if camera != "Automatic":
+        parts.append(f"Camera and composition: {camera}.")
+    if quality != "Automatic":
+        parts.append(f"Image quality: {quality}.")
+    if color_mood != "Automatic":
+        parts.append(f"Color and mood: {color_mood}.")
+
+    parts.append(
+        "Professional commercial image, coherent composition, accurate perspective, "
+        "clear subject hierarchy, natural depth, physically plausible lighting, "
+        "realistic materials and textures, consistent subject details, "
+        "cinematic visual quality, high visual fidelity."
+    )
+
+    neg = clean_prompt(negative_prompt)
+    if neg:
+        parts.append(f"Avoid: {neg}.")
+
+    return clean_prompt(" ".join(parts))
+
+
+# ============================================================
 # IMAGE PROMPT BUILDER
 # ============================================================
 
@@ -592,90 +702,59 @@ def build_image_prompt(
 
 
 # ============================================================
-# IMAGE GENERATION
+# IMAGE GENERATION — TULPAR / COMFYUI
 # ============================================================
 
 def generate_image(
     prompt,
     width,
     height,
+    seed=None,
+    progress_bar=None,
+    status_box=None,
 ):
+    """Tulpar üzerindeki Qwen Image 2.1 ile gerçek job polling kullanarak görsel üretir."""
+    payload = {
+        "prompt": str(prompt),
+        "width": int(width),
+        "height": int(height),
+    }
+    if seed is not None:
+        payload["seed"] = int(seed)
 
-    # KOGCE'nin yerel backend'i /generate-image endpoint'i
-    # JSON değil FORM DATA bekliyor.
-    if not LOCAL_BACKEND_URL:
-        return None, "Tulpar backend adresi tanımlanmamış."
-
-    prompt = str(prompt or "").strip()
-
-    if not prompt:
-        return None, "Prompt boş."
+    response, error = local_backend_request(
+        "/generate-image",
+        payload,
+        timeout=30,
+        form=True,
+    )
+    if error:
+        return None, error
 
     try:
-        response = requests.post(
-            f"{LOCAL_BACKEND_URL.rstrip('/')}/generate-image",
-            data={
-                "prompt": prompt,
-                "width": int(width),
-                "height": int(height),
-            },
-            timeout=900,
-        )
-
-        if response.status_code != 200:
-            return (
-                None,
-                f"Backend HTTP {response.status_code}\n"
-                f"{response.text[:4000]}",
-            )
-
-        # Backend bazı sürümlerde doğrudan görsel byte'ı,
-        # bazı sürümlerde JSON içindeki base64/download_url döndürebilir.
-        content_type = response.headers.get("content-type", "").lower()
-
-        if content_type.startswith("image/"):
-            return Image.open(io.BytesIO(response.content)).convert("RGB"), None
-
         data = response.json()
+    except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
-        if "image" in data:
-            import base64
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
 
-            image_data = data["image"]
-            if isinstance(image_data, str):
-                if image_data.startswith("data:image") and "," in image_data:
-                    image_data = image_data.split(",", 1)[1]
-                raw = base64.b64decode(image_data)
-                return Image.open(io.BytesIO(raw)).convert("RGB"), None
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
 
-        if "download_url" in data:
-            download_url = data["download_url"]
-            if download_url.startswith("/"):
-                download_url = LOCAL_BACKEND_URL.rstrip("/") + download_url
+    raw, error = download_backend_result(result)
+    if error:
+        return None, error
 
-            image_response = requests.get(
-                download_url,
-                timeout=180,
-            )
-
-            if image_response.status_code == 200:
-                return (
-                    Image.open(io.BytesIO(image_response.content)).convert("RGB"),
-                    None,
-                )
-
-        return (
-            None,
-            "Tulpar backend geçerli görsel sonucu döndürmedi.\n\n"
-            f"{data}",
-        )
-
-    except requests.exceptions.Timeout:
-        return None, "Tulpar backend görsel üretiminde zaman aşımına uğradı."
-
-    except requests.exceptions.RequestException as e:
-        return None, f"Tulpar bağlantı hatası: {e}"
-
+    try:
+        return Image.open(io.BytesIO(raw)).convert("RGB"), None
     except Exception as e:
         return None, f"Görsel sonucu okunamadı: {e}"
 
@@ -709,32 +788,35 @@ def local_backend_request(
     payload,
     files=None,
     timeout=30,
+    form=False,
 ):
+    """Send only short-lived requests to Tulpar.
 
+    Long GPU jobs are handled through job_id + polling so Cloudflare
+    Quick Tunnel never has to keep one HTTP request open for minutes.
+    """
     if not LOCAL_BACKEND_URL:
-
         return None, (
             "Tulpar backend adresi henüz tanımlanmamış."
         )
 
     try:
-
-        url = (
-            LOCAL_BACKEND_URL.rstrip("/")
-            + endpoint
-        )
+        url = LOCAL_BACKEND_URL.rstrip('/') + endpoint
 
         if files:
-
             response = requests.post(
                 url,
                 data=payload,
                 files=files,
                 timeout=timeout,
             )
-
+        elif form:
+            response = requests.post(
+                url,
+                data=payload,
+                timeout=timeout,
+            )
         else:
-
             response = requests.post(
                 url,
                 json=payload,
@@ -742,7 +824,6 @@ def local_backend_request(
             )
 
         if response.status_code != 200:
-
             return (
                 None,
                 f"Backend HTTP {response.status_code}\n"
@@ -752,16 +833,86 @@ def local_backend_request(
         return response, None
 
     except requests.exceptions.Timeout:
-
-        return None, "Tulpar backend zaman aşımına uğradı."
-
+        return None, "Tulpar backend başlangıç isteği zaman aşımına uğradı."
     except requests.exceptions.RequestException as e:
-
         return None, f"Tulpar bağlantı hatası: {e}"
-
     except Exception as e:
-
         return None, str(e)
+
+
+def poll_backend_job(job_id, progress_bar=None, status_box=None, timeout=1800):
+    """Poll a Tulpar job with short HTTP requests until it really finishes."""
+    if not LOCAL_BACKEND_URL:
+        return None, "Tulpar backend adresi tanımlanmamış."
+
+    started = time.time()
+    last_progress = -1
+
+    while True:
+        if time.time() - started > timeout:
+            return None, "Tulpar üretimi izin verilen maksimum süreyi aştı."
+
+        try:
+            response = requests.get(
+                f"{LOCAL_BACKEND_URL.rstrip('/')}/progress/{job_id}",
+                timeout=15,
+            )
+
+            if response.status_code != 200:
+                return None, (
+                    f"Tulpar job durumu HTTP {response.status_code}\n"
+                    f"{response.text[:2000]}"
+                )
+
+            data = response.json()
+            progress = int(data.get("progress", 0) or 0)
+            status = str(data.get("status", ""))
+            message = str(data.get("message", "Üretim devam ediyor..."))
+
+            if progress_bar is not None and progress != last_progress:
+                progress_bar.progress(
+                    max(0.0, min(1.0, progress / 100.0)),
+                    text=f"%{progress} — {message}",
+                )
+                last_progress = progress
+
+            if status_box is not None:
+                status_box.caption(message)
+
+            if status == "completed":
+                if progress_bar is not None:
+                    progress_bar.progress(1.0, text="%100 — Üretim tamamlandı")
+                return data, None
+
+            if status == "error":
+                return None, data.get("error") or message or "Tulpar üretim hatası."
+
+        except requests.exceptions.RequestException as e:
+            # A single polling failure is not a generation failure.
+            # Retry because the GPU job itself may still be running.
+            if status_box is not None:
+                status_box.caption(f"Tulpar durum bağlantısı yeniden deneniyor... ({e})")
+
+        time.sleep(1.0)
+
+
+def download_backend_result(data):
+    """Download a completed Tulpar output using its short-lived URL."""
+    download_url = data.get("download_url")
+    if not download_url:
+        return None, "Tulpar tamamlandı ancak download_url döndürmedi."
+
+    if download_url.startswith("/"):
+        download_url = LOCAL_BACKEND_URL.rstrip("/") + download_url
+
+    try:
+        response = requests.get(download_url, timeout=60)
+        response.raise_for_status()
+        if not response.content:
+            return None, "Tulpar boş bir çıktı dosyası döndürdü."
+        return response.content, None
+    except requests.exceptions.RequestException as e:
+        return None, f"Tulpar çıktı dosyası alınamadı: {e}"
 
 
 # ============================================================
@@ -772,8 +923,10 @@ def generate_text_video(
     prompt,
     num_frames=33,
     steps=20,
+    progress_bar=None,
+    status_box=None,
 ):
-
+    """Start T2V quickly, then poll the job until a real file exists."""
     response, error = local_backend_request(
         "/generate-video",
         {
@@ -781,62 +934,31 @@ def generate_text_video(
             "num_frames": int(num_frames),
             "steps": int(steps),
         },
-        timeout=45,
+        timeout=30,
     )
 
     if error:
-
         return None, error
 
     try:
-
         data = response.json()
-
-        if "video" in data:
-
-            video = data["video"]
-
-            if isinstance(video, str):
-
-                import base64
-
-                return (
-                    base64.b64decode(video),
-                    None,
-                )
-
-        if "download_url" in data:
-
-            download_url = data["download_url"]
-
-            if download_url.startswith("/"):
-
-                download_url = (
-                    LOCAL_BACKEND_URL.rstrip("/")
-                    + download_url
-                )
-
-            video_response = requests.get(
-                download_url,
-                timeout=180,
-            )
-
-            if video_response.status_code == 200:
-
-                return (
-                    video_response.content,
-                    None,
-                )
-
-        return (
-            None,
-            "Tulpar backend geçerli video sonucu döndürmedi.\n\n"
-            f"{data}",
-        )
-
     except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
-        return None, f"Video sonucu okunamadı: {e}"
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
+
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
+
+    return download_backend_result(result)
 
 
 # ============================================================
@@ -848,8 +970,9 @@ def generate_image_video(
     prompt,
     num_frames=33,
     steps=20,
+    progress_bar=None,
+    status_box=None,
 ):
-
     files = {
         "image": (
             "reference.png",
@@ -866,57 +989,31 @@ def generate_image_video(
             "steps": str(steps),
         },
         files=files,
-        timeout=45,
+        timeout=30,
     )
 
     if error:
-
         return None, error
 
     try:
-
         data = response.json()
-
-        if "video" in data:
-
-            import base64
-
-            return (
-                base64.b64decode(data["video"]),
-                None,
-            )
-
-        if "download_url" in data:
-
-            download_url = data["download_url"]
-
-            if download_url.startswith("/"):
-
-                download_url = (
-                    LOCAL_BACKEND_URL.rstrip("/")
-                    + download_url
-                )
-
-            video_response = requests.get(
-                download_url,
-                timeout=180,
-            )
-
-            if video_response.status_code == 200:
-
-                return (
-                    video_response.content,
-                    None,
-                )
-
-        return (
-            None,
-            f"Tulpar video sonucu geçersiz:\n{data}",
-        )
-
     except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
-        return None, f"Video sonucu okunamadı: {e}"
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
+
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
+
+    return download_backend_result(result)
 
 
 # ============================================================
@@ -931,14 +1028,11 @@ def generate_character_image(
     preserve_face,
     preserve_body,
     preserve_clothes,
+    progress_bar=None,
+    status_box=None,
 ):
-
     if not LOCAL_BACKEND_URL:
-
-        return (
-            None,
-            "Karakter motoru henüz Tulpar backend'e bağlanmadı."
-        )
+        return None, "Karakter motoru henüz Tulpar backend'e bağlanmadı."
 
     files = {
         "image": (
@@ -947,7 +1041,6 @@ def generate_character_image(
             "image/png",
         )
     }
-
     payload = {
         "instruction": instruction,
         "style": style,
@@ -961,64 +1054,36 @@ def generate_character_image(
         "/character-edit",
         payload,
         files=files,
-        timeout=45,
+        timeout=30,
     )
-
     if error:
-
         return None, error
 
     try:
-
         data = response.json()
-
-        if "image" in data:
-
-            import base64
-
-            return (
-                Image.open(
-                    io.BytesIO(
-                        base64.b64decode(data["image"])
-                    )
-                ),
-                None,
-            )
-
-        if "download_url" in data:
-
-            url = data["download_url"]
-
-            if url.startswith("/"):
-
-                url = (
-                    LOCAL_BACKEND_URL.rstrip("/")
-                    + url
-                )
-
-            result = requests.get(
-                url,
-                timeout=180,
-            )
-
-            if result.status_code == 200:
-
-                return (
-                    Image.open(
-                        io.BytesIO(
-                            result.content
-                        )
-                    ),
-                    None,
-                )
-
-        return (
-            None,
-            f"Karakter backend sonucu geçersiz:\n{data}",
-        )
-
     except Exception as e:
+        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
 
+    job_id = data.get("job_id")
+    if not job_id:
+        return None, f"Tulpar job_id döndürmedi: {data}"
+
+    result, error = poll_backend_job(
+        job_id,
+        progress_bar=progress_bar,
+        status_box=status_box,
+        timeout=GENERATION_TIMEOUT,
+    )
+    if error:
+        return None, error
+
+    raw, error = download_backend_result(result)
+    if error:
+        return None, error
+
+    try:
+        return Image.open(io.BytesIO(raw)).convert("RGB"), None
+    except Exception as e:
         return None, f"Karakter sonucu okunamadı: {e}"
 
 
@@ -1123,7 +1188,7 @@ with st.sidebar:
 
     st.markdown("### Üretim Motorları")
 
-    st.caption("✦ FLUX Görsel")
+    st.caption("✦ Qwen Image 2.1 Görsel")
     st.caption("✦ AI Prompt Robotu")
     st.caption("✦ Karakter Stüdyosu")
     st.caption("✦ Tulpar / ComfyUI")
@@ -1415,83 +1480,42 @@ with tabs[0]:
 
             if ai_boost:
 
-                with st.spinner(
-                    "AI Prompt Robotu görseli hazırlıyor..."
-                ):
-
-                    enhanced_prompt, error = call_ai(
-                        """
-You are an expert professional image-generation prompt engineer.
-
-Transform the user's idea and the supplied visual settings into ONE
-high-quality English image-generation prompt.
-
-IMPORTANT:
-- Preserve the user's subject and intended meaning.
-- Respect every supplied style, lighting, camera, quality and mood choice.
-- Do not invent major story elements.
-- Make the composition visually coherent.
-- Describe realistic details where appropriate.
-- Return ONLY the final prompt.
-""",
-                        f"""
-USER IDEA:
-{prompt}
-
-STYLE:
-{style}
-
-LIGHTING:
-{lighting}
-
-CAMERA:
-{camera}
-
-QUALITY:
-{quality}
-
-COLOR / MOOD:
-{color_mood}
-
-NEGATIVE:
-{negative_prompt}
-""",
-                        temperature=0.7,
-                        max_tokens=1800,
+                with st.spinner("Yerel Prompt Robotu fikri analiz ediyor ve profesyonel İngilizce prompta dönüştürüyor..."):
+                    final_prompt = local_prompt_robot(
+                        prompt,
+                        style,
+                        lighting,
+                        camera,
+                        quality,
+                        color_mood,
+                        negative_prompt,
                     )
 
-                if error:
+                if not final_prompt:
+                    st.error("Prompt Robotu boş bir prompt oluşturdu.")
+                    st.stop()
 
-                    st.error(error)
+                st.session_state.last_enhanced_prompt = final_prompt
 
-                    enhanced_prompt = None
+                with st.expander("Profesyonel İngilizce prompt", expanded=True):
+                    st.code(final_prompt, language="text")
 
-                if enhanced_prompt:
+            if not LOCAL_BACKEND_URL:
+                st.warning("Tulpar backend adresi tanımlanmamış.")
+                st.stop()
 
-                    final_prompt = enhanced_prompt
-
-                    st.session_state.last_enhanced_prompt = (
-                        enhanced_prompt
-                    )
-
-                    with st.expander(
-                        "AI tarafından oluşturulan final prompt",
-                        expanded=True,
-                    ):
-
-                        st.code(
-                            enhanced_prompt,
-                            language="text",
-                        )
-
+            progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+            status_box = st.empty()
             with st.spinner(
-                "Görsel oluşturuluyor..."
+                "Qwen Image 2.1 / Tulpar görsel oluşturuyor..."
             ):
-
                 image, error = generate_image(
                     final_prompt,
                     width,
                     height,
+                    seed=seed,
+                    progress_bar=progress,
+                    status_box=status_box,
                 )
 
             if error:
@@ -1920,6 +1944,9 @@ with tabs[2]:
                     f"Natural realistic motion and consistent subject appearance."
                 )
 
+                progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                status_box = st.empty()
+
                 with st.spinner(
                     "Wan 2.1 video oluşturuyor..."
                 ):
@@ -1928,6 +1955,8 @@ with tabs[2]:
                         final_video_prompt,
                         num_frames=num_frames,
                         steps=steps,
+                        progress_bar=progress,
+                        status_box=status_box,
                     )
 
                 if error:
@@ -2061,6 +2090,9 @@ with tabs[2]:
 
                         frames = 49
 
+                    progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                    status_box = st.empty()
+
                     with st.spinner(
                         "Wan 2.1 görseli videoya dönüştürüyor..."
                     ):
@@ -2070,6 +2102,8 @@ with tabs[2]:
                             motion_prompt,
                             num_frames=frames,
                             steps=video_steps,
+                            progress_bar=progress,
+                            status_box=status_box,
                         )
 
                     if error:
@@ -2587,7 +2621,7 @@ with tabs[5]:
 
         st.metric(
             "Image",
-            "FLUX",
+            "QWEN 2.1",
         )
 
     with col3:
@@ -2615,7 +2649,7 @@ with tabs[5]:
     )
 
     st.code(
-        IMAGE_MODEL
+        "Comfy-Org/Qwen-Image-2.1 • Tulpar / ComfyUI"
     )
 
     st.subheader(
