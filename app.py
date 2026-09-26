@@ -91,6 +91,11 @@ def local_ai_available():
         return False
 
 
+# Runtime flag used by the UI. It is deliberately computed locally so the
+# app never references an undefined LOCAL_AI variable.
+LOCAL_AI = local_ai_available() and local_ai_model_available()
+
+
 def local_ai_model_available():
     try:
         response = requests.get(
