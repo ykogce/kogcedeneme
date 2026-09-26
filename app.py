@@ -539,6 +539,13 @@ def call_ai(
 # IMAGE PROMPT BUILDER
 # ============================================================
 
+def clean_prompt(value):
+    """Normalize prompt text so mobile/browser whitespace cannot become an empty payload."""
+    if value is None:
+        return ""
+    return " ".join(str(value).replace("\x00", " ").split()).strip()
+
+
 def build_image_prompt(
     prompt,
     style,
@@ -549,7 +556,9 @@ def build_image_prompt(
     negative_prompt,
 ):
 
-    parts = [prompt.strip()]
+    prompt = clean_prompt(prompt)
+    negative_prompt = clean_prompt(negative_prompt)
+    parts = [prompt]
 
     if style != "Automatic":
 
@@ -605,8 +614,12 @@ def generate_image(
     status_box=None,
 ):
     """Tulpar üzerindeki Qwen Image 2.1 ile gerçek job polling kullanarak görsel üretir."""
+    prompt = clean_prompt(prompt)
+    if not prompt:
+        return None, "Backend'e boş prompt gönderilmesi engellendi."
+
     payload = {
-        "prompt": str(prompt),
+        "prompt": prompt,
         "width": int(width),
         "height": int(height),
     }
@@ -810,6 +823,10 @@ def generate_text_video(
     status_box=None,
 ):
     """Start T2V quickly, then poll the job until a real file exists."""
+    prompt = clean_prompt(prompt)
+    if not prompt:
+        return None, "Backend'e boş video promptu gönderilmesi engellendi."
+
     response, error = local_backend_request(
         "/generate-video",
         {
@@ -1174,13 +1191,14 @@ with tabs[0]:
         """
     )
 
-    prompt = st.text_area(
+    prompt_input = st.text_area(
         "Ana Prompt",
         placeholder=(
             "Örneğin: A man walking alone through an empty "
             "rainy street at night..."
         ),
         height=145,
+        key="image_prompt_input",
     )
 
     col1, col2, col3 = st.columns(3)
@@ -1344,13 +1362,11 @@ with tabs[0]:
         use_container_width=True,
         type="primary",
     ):
+        prompt = clean_prompt(prompt_input)
 
-        if not prompt.strip():
-
+        if not prompt:
             st.warning("Önce bir prompt gir.")
-
         else:
-
             final_prompt = build_image_prompt(
                 prompt,
                 style,
@@ -1362,23 +1378,65 @@ with tabs[0]:
             )
 
             if ai_boost:
+                with st.spinner(
+                    "AI Prompt Robotu fikri analiz ediyor, ayrıntılandırıyor ve İngilizce profesyonel prompta dönüştürüyor..."
+                ):
+                    enhanced_prompt, ai_error = call_ai(
+                        """
+You are KOGCE's professional AI image-prompt engineer.
 
-                # Local prompt enhancement only. Image generation itself is
-                # always handled by Tulpar/ComfyUI; no HF inference credits.
-                with st.spinner("Yerel Prompt Robotu görseli hazırlıyor..."):
-                    enhanced_prompt = (
-                        final_prompt
-                        + " High visual fidelity, coherent composition, detailed textures, "
-                        + "natural lighting, accurate perspective, clean subject separation."
+Transform the user's idea into a production-ready English image-generation prompt.
+
+Rules:
+- If the user's input is Turkish or another non-English language, translate the intended meaning into natural professional English.
+- Preserve the user's core subject, action, scene and intended meaning.
+- Expand the idea with useful visual details: subject appearance, environment, composition, camera angle, lens language, lighting, materials, textures, color palette, atmosphere, depth, realism and visual quality.
+- Make the result specific and visually coherent.
+- Do not invent major story elements that were not requested.
+- Do not explain your process.
+- Return ONLY the final English image-generation prompt.
+- Do not add labels such as "Prompt:".
+""",
+                        f"""Original user idea:
+{prompt}
+
+Selected visual style: {style}
+Selected lighting: {lighting}
+Selected camera/composition: {camera}
+Selected quality: {quality}
+Selected color/mood: {color_mood}
+Negative prompt: {clean_prompt(negative_prompt)}
+""",
+                        temperature=0.65,
+                        max_tokens=1800,
                     )
-                    if negative_prompt.strip():
-                        enhanced_prompt += " Avoid: " + negative_prompt.strip() + "."
 
-                final_prompt = enhanced_prompt.strip()
+                if ai_error:
+                    st.error("AI Prompt Robotu çalışamadı.")
+                    st.code(ai_error)
+                    st.stop()
+
+                enhanced_prompt = clean_prompt(enhanced_prompt)
+                if not enhanced_prompt:
+                    st.error("AI Prompt Robotu boş bir prompt döndürdü.")
+                    st.stop()
+
+                final_prompt = enhanced_prompt
+                if clean_prompt(negative_prompt):
+                    final_prompt += " Avoid: " + clean_prompt(negative_prompt) + "."
+
                 st.session_state.last_enhanced_prompt = final_prompt
 
-                with st.expander("AI tarafından oluşturulan final prompt", expanded=True):
+                with st.expander(
+                    "AI tarafından oluşturulan profesyonel İngilizce prompt",
+                    expanded=True,
+                ):
                     st.code(final_prompt, language="text")
+
+            final_prompt = clean_prompt(final_prompt)
+            if not final_prompt:
+                st.error("Üretim promptu boş oluştu. İşlem başlatılmadı.")
+                st.stop()
 
             if not LOCAL_BACKEND_URL:
                 st.warning("Tulpar backend adresi tanımlanmamış.")
@@ -1724,6 +1782,7 @@ with tabs[2]:
                 "cinematic camera movement..."
             ),
             height=160,
+            key="video_prompt_input",
         )
 
         col1, col2, col3 = st.columns(3)
@@ -1898,6 +1957,7 @@ with tabs[2]:
                 "slow cinematic camera tracking..."
             ),
             height=150,
+            key="motion_prompt_input",
         )
 
         col1, col2 = st.columns(2)
@@ -2057,6 +2117,7 @@ with tabs[3]:
             "Fikrin",
             height=150,
             placeholder="Kısa fikrini yaz...",
+            key="ai_prompt_robot_idea",
         )
 
         if st.button(
@@ -2078,21 +2139,15 @@ with tabs[3]:
 
                     result, error = call_ai(
                         """
-You are an expert professional image-generation prompt engineer.
+You are KOGCE's professional AI image-prompt engineer.
 
-Transform the user's idea into an extremely detailed but coherent
-English image-generation prompt.
-
-Include:
-subject, appearance, environment, composition, camera,
-lens, lighting, materials, textures, colors, atmosphere,
-depth, realism and visual quality.
-
-Preserve the user's intended meaning.
-Do not invent major story elements.
-Return only the final prompt.
+Transform the user's idea into a production-ready English image-generation prompt.
+If the input is Turkish or another language, translate the intended meaning into natural professional English first.
+Then enrich it with relevant visual information: subject and appearance, action, environment, composition, camera angle, lens language, lighting, materials, textures, colors, atmosphere, depth, realism, visual consistency and image quality.
+Preserve the user's intended meaning. Do not invent major story elements.
+Do not explain the process. Return ONLY the final English prompt. Do not add a "Prompt:" label.
 """,
-                        idea,
+                        clean_prompt(idea),
                         temperature=0.75,
                         max_tokens=1800,
                     )
