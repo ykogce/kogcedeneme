@@ -13,6 +13,10 @@ from PIL import Image
 
 APP_PASSWORD = "1234"
 
+# Local model labels (no Hugging Face / cloud inference)
+IMAGE_MODEL = "Qwen Image 2.1 — Tulpar / ComfyUI"
+PROMPT_MODEL = "Local Prompt Robot — rule-based + optional Ollama"
+
 # Tulpar / ComfyUI backend
 LOCAL_BACKEND_URL = st.secrets.get(
     "LOCAL_BACKEND_URL",
@@ -448,33 +452,125 @@ def clean_prompt(value):
 
 
 def local_prompt_robot(prompt, style, lighting, camera, quality, color_mood, negative_prompt):
-    """Local zero-credit prompt engineering. No cloud API is used."""
+    """
+    Convert the user's short Turkish/mixed-language idea into a clean,
+    production-oriented English image prompt without any cloud API.
+
+    If Ollama is available locally, it is used for richer rewriting.
+    Otherwise a deterministic translation/expansion fallback is used.
+    """
     prompt = clean_prompt(prompt)
-    replacements = {
-        "gerçekçi": "photorealistic", "fotogerçekçi": "photorealistic",
-        "sinematik": "cinematic", "detaylı": "highly detailed",
-        "çok detaylı": "highly detailed", "yüksek detay": "highly detailed",
-        "gece": "at night", "gündüz": "during daytime", "yağmur": "rain",
-        "karlı": "snowy", "kar": "snow", "deniz": "sea", "sahil": "seaside",
-        "plaj": "beach", "şehir": "city", "sokak": "street", "araba": "car",
-        "otomobil": "car", "kırmızı": "red", "mavi": "blue", "siyah": "black",
-        "beyaz": "white", "yeşil": "green", "sarı": "yellow", "kadın": "woman",
-        "adam": "man", "erkek": "man", "çocuk": "child", "köpek": "dog",
-        "kedi": "cat", "mutlu": "happy", "üzgün": "sad", "gülümseyen": "smiling",
-        "koşuyor": "running", "yürüyor": "walking", "oturuyor": "sitting",
-        "ayakta": "standing",
+    if not prompt:
+        return ""
+
+    # First try the user's own local LLM, if Ollama is installed/running.
+    # This never contacts Hugging Face or any cloud inference provider.
+    try:
+        ollama_payload = {
+            "model": "qwen2.5:3b",
+            "stream": False,
+            "options": {"temperature": 0.25, "num_predict": 700},
+            "prompt": f"""You are a professional image-generation prompt engineer.
+Rewrite the user's idea as ONE polished English prompt for a modern text-to-image model.
+Translate Turkish into natural English. Preserve the exact subject and action.
+Do not add unrelated story elements. Make the scene concrete and visually coherent.
+Include subject appearance, action, environment, composition, camera, lighting, depth,
+and visual quality when useful. Return ONLY the final English prompt, no headings and no explanation.
+
+User idea: {prompt}
+Style: {style}
+Lighting: {lighting}
+Camera: {camera}
+Quality: {quality}
+Color/Mood: {color_mood}
+Negative prompt: {negative_prompt}
+""",
+        }
+        r = requests.post(
+            "http://127.0.0.1:11434/api/generate",
+            json=ollama_payload,
+            timeout=20,
+        )
+        if r.ok:
+            result = clean_prompt(r.json().get("response", ""))
+            if result:
+                if not result.lower().startswith(("professional image-generation prompt", "image-generation prompt")):
+                    return result + (f" Avoid: {clean_prompt(negative_prompt)}." if clean_prompt(negative_prompt) else "")
+                return result
+    except Exception:
+        pass
+
+    # Deterministic local fallback. It is intentionally phrase-aware so a
+    # short Turkish input is not simply concatenated with English boilerplate.
+    phrase_replacements = {
+        "zombilerden kaçan": "running away from zombies",
+        "zombilerden kaçıyor": "running away from zombies",
+        "zombilerden kaçan sevimli": "a cute character running away from zombies",
+        "sevimli gri kedi": "a cute gray cat",
+        "gri kedi": "a gray cat",
+        "sevimli kedi": "a cute cat",
+        "kaçan": "running away",
+        "kaçıyor": "is running away",
+        "koşuyor": "is running",
+        "koşan": "running",
+        "yürüyor": "is walking",
+        "yürüyen": "walking",
+        "oturuyor": "is sitting",
+        "oturan": "sitting",
+        "ayakta duran": "standing",
+        "zombiler": "zombies",
+        "zombi": "zombie",
+        "sevimli": "cute",
+        "gri": "gray",
+        "kedi": "cat",
+        "köpek": "dog",
+        "araba": "car",
+        "otomobil": "car",
+        "kırmızı": "red",
+        "mavi": "blue",
+        "siyah": "black",
+        "beyaz": "white",
+        "yeşil": "green",
+        "sarı": "yellow",
+        "gerçekçi": "photorealistic",
+        "fotogerçekçi": "photorealistic",
+        "sinematik": "cinematic",
+        "detaylı": "highly detailed",
+        "çok detaylı": "highly detailed",
+        "gece": "at night",
+        "gündüz": "during daytime",
+        "yağmur": "rainy",
+        "karlı": "snowy",
+        "kar": "snow",
+        "deniz": "sea",
+        "sahil": "seaside",
+        "plaj": "beach",
+        "şehir": "city",
+        "sokak": "street",
+        "kadın": "woman",
+        "adam": "man",
+        "erkek": "man",
+        "çocuk": "child",
+        "mutlu": "happy",
+        "üzgün": "sad",
+        "gülümseyen": "smiling",
     }
+
     translated = prompt
-    for tr, en in sorted(replacements.items(), key=lambda x: len(x[0]), reverse=True):
+    for tr, en in sorted(phrase_replacements.items(), key=lambda x: len(x[0]), reverse=True):
         translated = re.sub(rf"(?<!\w){re.escape(tr)}(?!\w)", en, translated, flags=re.IGNORECASE)
+
+    translated = clean_prompt(translated)
     parts = [translated]
     if style != "Automatic": parts.append(f"Visual style: {style}.")
     if lighting != "Automatic": parts.append(f"Lighting: {lighting}.")
     if camera != "Automatic": parts.append(f"Camera and composition: {camera}.")
     if quality != "Automatic": parts.append(f"Image quality: {quality}.")
     if color_mood != "Automatic": parts.append(f"Color and mood: {color_mood}.")
-    parts.append("Professional image-generation prompt, coherent composition, accurate perspective, natural depth, realistic materials and textures, consistent subject details, high visual fidelity.")
-    if clean_prompt(negative_prompt): parts.append(f"Avoid: {clean_prompt(negative_prompt)}.")
+    parts.append("Professional commercial image, coherent composition, natural perspective, clear subject hierarchy, realistic depth, physically plausible lighting, detailed materials and textures, consistent subject anatomy, high visual fidelity.")
+    neg = clean_prompt(negative_prompt)
+    if neg:
+        parts.append(f"Avoid: {neg}.")
     return clean_prompt(" ".join(parts))
 
 
@@ -2415,15 +2511,15 @@ with tabs[5]:
     with col1:
 
         st.metric(
-            "HF API",
-            "ONLINE" if LOCAL_BACKEND_URL else "MISSING",
+            "Local AI",
+            "ONLINE" if LOCAL_BACKEND_URL else "OFFLINE",
         )
 
     with col2:
 
         st.metric(
             "Image",
-            "FLUX",
+            "Qwen Image 2.1",
         )
 
     with col3:
