@@ -2682,13 +2682,9 @@ with tabs[4]:
 # SYSTEM
 # ============================================================
 
-# ============================================================
-# SYSTEM
-# ============================================================
-
 with tabs[5]:
 
-    st.html(
+    render_html(
         """
         <div class="kogce-card">
 
@@ -2707,18 +2703,21 @@ with tabs[5]:
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
+
         st.metric(
             "HF API",
             "ONLINE" if HF_API_KEY else "MISSING",
         )
 
     with col2:
+
         st.metric(
             "Image",
-            "LOCAL / TULPAR",
+            "TULPAR",
         )
 
     with col3:
+
         st.metric(
             "Tulpar",
             (
@@ -2729,6 +2728,7 @@ with tabs[5]:
         )
 
     with col4:
+
         st.metric(
             "Gallery",
             len(st.session_state.gallery),
