@@ -75,57 +75,238 @@ def get_hf_key():
 HF_API_KEY = get_hf_key()
 
 
+
 # ============================================================
-# GLOBAL STYLE
+# LEONARDO-STYLE UI — VISUAL ONLY
 # ============================================================
-# UI ONLY — üretim motorlarına dokunulmaz.
-# ============================================================
-st.markdown("""
+
+st.html("""
 <style>
-:root { --bg:#0b0c0f; --panel:#121419; --panel2:#17191f; --line:#252832; --text:#f4f4f5; --muted:#8e939f; --accent:#8b5cf6; --accent2:#a78bfa; }
-.stApp { background:var(--bg); color:var(--text); }
-.block-container { max-width:1500px; padding:1.25rem 1.5rem 3rem; }
-header[data-testid="stHeader"] { background:rgba(11,12,15,.88); }
-section[data-testid="stSidebar"] { background:#0e1014; border-right:1px solid var(--line); }
-section[data-testid="stSidebar"] > div { padding:1rem .8rem; }
-section[data-testid="stSidebar"] .stButton > button { justify-content:flex-start; text-align:left; }
-.stButton > button { min-height:40px; border-radius:9px; border:1px solid #2a2d36; background:#17191f; color:#f4f4f5 !important; font-weight:650; box-shadow:none; }
-.stButton > button:hover { border-color:#4b5060; background:#1c1f27; transform:none; box-shadow:none; }
-.stButton > button[kind="primary"] { background:#8b5cf6; border-color:#8b5cf6; color:white !important; }
-.stButton > button[kind="primary"]:hover { background:#7c3aed; border-color:#7c3aed; }
-.stDownloadButton > button { min-height:40px; border-radius:9px; background:#17191f; border:1px solid #2a2d36; color:#f4f4f5 !important; }
-textarea, input { border-radius:9px !important; }
-textarea { background:#111318 !important; color:#f4f4f5 !important; border:1px solid #292d36 !important; }
-input { background:#111318 !important; color:#f4f4f5 !important; border:1px solid #292d36 !important; }
-textarea:focus, input:focus { border-color:#7654cf !important; box-shadow:0 0 0 1px #7654cf !important; }
-textarea::placeholder,input::placeholder { color:#666b76 !important; }
-[data-baseweb="select"] > div { background:#111318; border-color:#292d36; border-radius:9px; }
-[data-baseweb="select"] span { color:#e7e8eb; }
-.stSelectbox label,.stTextInput label,.stTextArea label,.stSlider label,.stFileUploader label,.stRadio label,.stCheckbox label,.stToggle label { color:#aeb3bd !important; font-size:.78rem; font-weight:650 !important; }
-.stTabs [data-baseweb="tab-list"] { gap:4px; border-bottom:1px solid var(--line); }
-.stTabs [data-baseweb="tab"] { color:#8e939f; padding:.65rem .9rem; }
-.stTabs [aria-selected="true"] { color:white !important; border-bottom:2px solid var(--accent); }
-[data-testid="stImage"] img { border-radius:10px; border:1px solid #272a33; }
-[data-testid="stMetric"] { background:#121419; border:1px solid #252832; border-radius:10px; padding:.75rem; }
-[data-testid="stMetricValue"] { color:#fff !important; }
-[data-testid="stMetricLabel"] { color:#8e939f !important; }
-.stAlert { border-radius:9px; }
-hr { border-color:#252832; }
-.kogce-topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; padding-bottom:.8rem; border-bottom:1px solid #20232b; }
-.kogce-brand { font-size:1.35rem; font-weight:800; letter-spacing:-.04em; }
-.kogce-brand span { color:#a78bfa; }
-.kogce-small { color:#777d89; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; }
-.kogce-section { font-size:1.35rem; font-weight:750; letter-spacing:-.03em; margin:.25rem 0 .2rem; }
-.kogce-muted { color:#8e939f; font-size:.84rem; }
-.kogce-panel { background:#121419; border:1px solid #252832; border-radius:12px; padding:1rem; }
-.kogce-panel-title { font-weight:700; color:#f2f3f5; margin-bottom:.65rem; }
-.kogce-chip { display:inline-block; padding:.2rem .5rem; border-radius:999px; background:#1a1d24; border:1px solid #2a2d36; color:#9fa5b0; font-size:.7rem; margin-right:.3rem; }
-.kogce-gallery-card { background:#111318; border:1px solid #252832; border-radius:10px; padding:.45rem; }
-.kogce-spacer { height:.5rem; }
+:root {
+    --bg: #070709;
+    --panel: #101014;
+    --panel-2: #15151b;
+    --line: rgba(255,255,255,.10);
+    --muted: #9a9aa3;
+    --text: #f5f5f7;
+    --accent: #7c5cff;
+    --accent-2: #9a7cff;
+}
+
+.stApp {
+    background: #070709;
+    color: var(--text);
+}
+
+.block-container {
+    max-width: 1220px;
+    padding-top: 1.2rem;
+    padding-bottom: 4rem;
+}
+
+header[data-testid="stHeader"] { background: transparent; }
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: #0a0a0d;
+    border-right: 1px solid var(--line);
+}
+section[data-testid="stSidebar"] > div:first-child { padding-top: 1.1rem; }
+section[data-testid="stSidebar"] * { color: #eeeeF2; }
+
+.k-sidebar-brand {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -.06em;
+    margin-bottom: 2px;
+}
+.k-sidebar-sub {
+    color: #74747d;
+    font-size: 11px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+}
+
+/* Streamlit native buttons become the navigation / tool cards */
+section[data-testid="stSidebar"] .stButton > button {
+    min-height: 44px;
+    margin: 3px 0;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #b7b7c0 !important;
+    font-weight: 650;
+    text-align: left;
+    box-shadow: none;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background: #17171d;
+    border-color: var(--line);
+    color: white !important;
+}
+
+/* Top bar */
+.k-topline {
+    color: #707079;
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+/* Hero */
+.k-hero-title {
+    font-size: clamp(42px, 7vw, 78px);
+    line-height: .93;
+    letter-spacing: -.075em;
+    font-weight: 950;
+    margin: 0 0 12px 0;
+    color: white;
+}
+.k-hero-title span { color: var(--accent-2); }
+.k-hero-sub {
+    max-width: 720px;
+    color: #8f8f99;
+    font-size: 15px;
+    line-height: 1.65;
+    margin-bottom: 24px;
+}
+
+/* Prompt composer */
+.k-composer {
+    border: 1px solid rgba(255,255,255,.13);
+    background: #101014;
+    border-radius: 24px;
+    padding: 16px;
+    box-shadow: 0 25px 70px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.04);
+    margin: 12px 0 18px;
+}
+.k-composer-label {
+    color: #777781;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin: 2px 4px 7px;
+}
+
+/* Text areas / inputs */
+textarea, input {
+    background: #111116 !important;
+    color: #f4f4f6 !important;
+    border: 1px solid rgba(255,255,255,.12) !important;
+    border-radius: 15px !important;
+}
+textarea:focus, input:focus {
+    border-color: rgba(124,92,255,.75) !important;
+    box-shadow: 0 0 0 1px rgba(124,92,255,.20) !important;
+}
+textarea::placeholder, input::placeholder { color: #65656e !important; }
+
+/* Labels */
+.stTextArea label, .stTextInput label, .stSelectbox label,
+.stRadio label, .stCheckbox label, .stToggle label, .stSlider label,
+.stFileUploader label, .stNumberInput label {
+    color: #bdbdc6 !important;
+    font-weight: 650 !important;
+}
+
+/* Primary buttons */
+.stButton > button {
+    min-height: 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.10);
+    background: #17171d;
+    color: white !important;
+    font-weight: 750;
+    box-shadow: none;
+}
+.stButton > button:hover {
+    border-color: rgba(124,92,255,.60);
+    background: #1c1928;
+}
+.stButton > button[kind="primary"] {
+    background: #7357ff;
+    border-color: #846dff;
+    color: white !important;
+    box-shadow: 0 12px 30px rgba(92,70,220,.24);
+}
+.stButton > button[kind="primary"]:hover { background: #8067ff; }
+
+/* Radio as pill selector */
+div[data-testid="stRadio"] > div {
+    gap: 7px;
+    flex-wrap: wrap;
+}
+div[data-testid="stRadio"] label {
+    background: #111116;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 999px;
+    padding: 7px 14px;
+}
+
+/* Selects */
+[data-baseweb="select"] > div {
+    background: #111116 !important;
+    border-color: rgba(255,255,255,.12) !important;
+    border-radius: 13px !important;
+}
+
+/* Cards */
+.k-section-title {
+    font-size: 24px;
+    font-weight: 850;
+    letter-spacing: -.04em;
+    color: white;
+    margin: 24px 0 4px;
+}
+.k-section-sub { color: #74747d; font-size: 13px; margin-bottom: 14px; }
+
+/* Metric / alerts */
+div[data-testid="stMetric"] {
+    background: #111116;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 15px;
+    padding: 15px;
+}
+div[data-testid="stMetricValue"] { color: white !important; }
+.stAlert { border-radius: 13px; }
+
+/* Images / video */
+[data-testid="stImage"] img, video {
+    border-radius: 16px;
+}
+
+/* Download buttons */
+.stDownloadButton > button {
+    background: #15151b !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    border-radius: 13px !important;
+    color: white !important;
+}
+
+/* Hide default tab strip; navigation is sidebar-based */
+.k-hidden-tabs { display: none; }
+
+/* Tool tiles */
+.k-tool-note {
+    color: #6f6f78;
+    font-size: 12px;
+    line-height: 1.45;
+    min-height: 34px;
+    margin: 3px 0 8px;
+}
+
+/* Mobile */
+@media (max-width: 760px) {
+    .block-container { padding-left: 1rem; padding-right: 1rem; }
+    .k-hero-title { font-size: 48px; }
+    .k-hero-sub { font-size: 14px; }
+}
 </style>
-""", unsafe_allow_html=True)
+""")
 
-
+# ============================================================
 # AI CORE
 # ============================================================
 
@@ -759,321 +940,533 @@ def generate_character_image(
         return None, f"Karakter sonucu okunamadı: {e}"
 
 
-# ============================================================
 
 
 # ============================================================
-# KOGCE UI — LEONARDO-INSPIRED WORKSPACE
+# LOGIN — EXISTING AUTHENTICATION PRESERVED
 # ============================================================
 
 if not st.session_state.authenticated:
-    st.markdown("## KOGCE AI Studio")
-    st.caption("Private creative workspace")
-    _, login_col, _ = st.columns([1, 1.1, 1])
-    with login_col:
-        st.markdown("### Studio'ya giriş")
-        password = st.text_input("Şifre", type="password", placeholder="Şifrenizi girin", key="login_password")
-        if st.button("Giriş yap", type="primary", use_container_width=True):
-            if password == APP_PASSWORD:
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("Hatalı şifre.")
+    st.markdown("# KOGCE AI Studio")
+    st.caption("Private AI Creative Workspace")
+    st.divider()
+    password = st.text_input("Studio şifresi", type="password", placeholder="Şifrenizi girin")
+    if st.button("STUDIO'YA GİR", use_container_width=True, type="primary"):
+        if password == APP_PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Hatalı şifre.")
     st.stop()
 
-# ---------- navigation ----------
+# ============================================================
+# LEONARDO-STYLE NAVIGATION
+# ============================================================
+
+NAV_ITEMS = {
+    "Görsel": "image",
+    "Karakter": "character",
+    "Video": "video",
+    "AI Araçları": "tools",
+    "Galeri": "gallery",
+    "Sistem": "system",
+}
+
 if "active_page" not in st.session_state:
-    st.session_state.active_page = "Görsel"
+    st.session_state.active_page = "image"
 
 with st.sidebar:
-    st.markdown("## KOGCE")
+    st.markdown("<div class='k-sidebar-brand'>KOGCE</div>", unsafe_allow_html=True)
     st.caption("AI CREATIVE STUDIO")
     st.divider()
-    st.caption("CREATE")
+
+    st.markdown("**CREATE**")
     for label in ["Görsel", "Karakter", "Video"]:
-        if st.button(label, key=f"nav_{label}", use_container_width=True, type="primary" if st.session_state.active_page == label else "secondary"):
-            st.session_state.active_page = label
+        if st.button(label, key=f"nav_{label}", use_container_width=True):
+            st.session_state.active_page = NAV_ITEMS[label]
             st.rerun()
-    st.caption("TOOLS")
+
+    st.markdown("**TOOLS**")
     for label in ["AI Araçları", "Galeri"]:
-        if st.button(label, key=f"nav_{label}", use_container_width=True, type="primary" if st.session_state.active_page == label else "secondary"):
-            st.session_state.active_page = label
+        if st.button(label, key=f"nav_{label}", use_container_width=True):
+            st.session_state.active_page = NAV_ITEMS[label]
             st.rerun()
-    st.caption("SYSTEM")
-    if st.button("Sistem", key="nav_system", use_container_width=True, type="primary" if st.session_state.active_page == "Sistem" else "secondary"):
-        st.session_state.active_page = "Sistem"
+
+    st.markdown("**SYSTEM**")
+    if st.button("Sistem", key="nav_system", use_container_width=True):
+        st.session_state.active_page = "system"
         st.rerun()
+
     st.divider()
-    backend_online = local_backend_available() if LOCAL_BACKEND_URL else False
-    st.caption("LOCAL ENGINE")
-    st.write("● Tulpar ONLINE" if backend_online else "○ Tulpar OFFLINE")
-    st.caption(f"{len(st.session_state.gallery)} görsel")
-    st.divider()
-    if st.button("Çıkış", use_container_width=True):
+    if LOCAL_BACKEND_URL:
+        if local_backend_available():
+            st.success("TULPAR ONLINE")
+        else:
+            st.warning("TULPAR OFFLINE")
+    else:
+        st.info("TULPAR BAĞLANMADI")
+
+    st.caption(f"Galeri: {len(st.session_state.gallery)} görsel")
+    if st.button("Çıkış Yap", use_container_width=True):
         st.session_state.authenticated = False
         st.rerun()
 
-st.markdown('<div class="kogce-topbar"><div class="kogce-brand">KOGCE <span>AI Studio</span></div><div class="kogce-small">Local creative workspace</div></div>', unsafe_allow_html=True)
+# ============================================================
+# TOP HEADER
+# ============================================================
+
+st.markdown("<div class='k-topline'>KOGCE AI STUDIO · LOCAL CREATIVE WORKSPACE</div>", unsafe_allow_html=True)
+st.markdown("# KOGCE <span style='color:#9a7cff'>AI</span>", unsafe_allow_html=True)
+
+page = st.session_state.active_page
 
 # ============================================================
-# IMAGE WORKSPACE
+# IMAGE PAGE — LEONARDO-LIKE COMPOSER
 # ============================================================
-if st.session_state.active_page == "Görsel":
-    st.markdown('<div class="kogce-section">Image Generation</div>', unsafe_allow_html=True)
-    st.caption("Describe an image, configure the generation settings, then send it to Tulpar / ComfyUI.")
-    left, right = st.columns([1.65, 1], gap="large")
 
-    with left:
-        st.markdown('<div class="kogce-panel-title">Canvas</div>', unsafe_allow_html=True)
-        if st.session_state.gallery:
-            latest = st.session_state.gallery[-1]["image"]
-            st.image(latest, use_container_width=True)
+if page == "image":
+    st.markdown("<div class='k-hero-title'>YOUR IDEAS.<br><span>YOUR CREATIONS.</span></div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='k-hero-sub'>Fikrini yaz. Prompt robotu onu profesyonel üretim komutuna dönüştürsün. "
+        "Ardından görüntüyü doğrudan Tulpar / ComfyUI üzerinde üret.</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div class='k-composer'><div class='k-composer-label'>CREATE</div></div>", unsafe_allow_html=True)
+    prompt = st.text_area(
+        "Prompt",
+        label_visibility="collapsed",
+        placeholder="Type a prompt or paste your idea here...",
+        height=145,
+        key="image_prompt_main",
+    )
+
+    mode_col1, mode_col2, mode_col3 = st.columns([1, 1, 1])
+    with mode_col1:
+        st.caption("MODE")
+        st.radio("Mode", ["Image"], horizontal=True, label_visibility="collapsed")
+    with mode_col2:
+        st.caption("ASPECT")
+        aspect_ratio = st.selectbox("Aspect Ratio", ["1:1", "9:16", "16:9"], label_visibility="collapsed")
+    with mode_col3:
+        st.caption("PROMPT")
+        ai_boost = st.toggle("AI Prompt Robotu", value=True, label_visibility="collapsed")
+
+    resolutions = {
+        "1:1": (768, 768),
+        "9:16": (768, 1344),
+        "16:9": (1344, 768),
+    }
+    width, height = resolutions[aspect_ratio]
+
+    st.markdown("### Generation settings")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        style = st.selectbox("Style", [
+            "Automatic", "Photorealistic", "Cinematic", "Anime", "3D Render",
+            "Stylized 3D", "Cartoon", "Fantasy", "Cyberpunk", "Product Photography",
+            "Fashion Editorial", "Dark Cinematic",
+        ])
+    with c2:
+        lighting = st.selectbox("Lighting", [
+            "Automatic", "Natural daylight", "Cinematic lighting", "Soft studio lighting",
+            "Golden hour", "Blue hour", "Neon lighting", "Dramatic lighting",
+            "Low-key lighting", "Volumetric lighting", "Rainy night lighting",
+        ])
+    with c3:
+        camera = st.selectbox("Camera", [
+            "Automatic", "Close-up portrait", "Medium shot", "Full body shot",
+            "Wide cinematic shot", "Low angle", "High angle", "Eye level",
+            "Aerial perspective", "Over-the-shoulder",
+        ])
+
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        quality = st.selectbox("Quality", [
+            "Automatic", "High detail", "Ultra detailed", "Photographic realism",
+            "Cinematic quality", "Sharp professional image",
+        ])
+    with c5:
+        color_mood = st.selectbox("Color / Mood", [
+            "Automatic", "Natural colors", "Dark moody", "Warm cinematic",
+            "Cool cinematic", "Neon futuristic", "Muted realistic", "High contrast",
+        ])
+    with c6:
+        seed_mode = st.selectbox("Seed", ["Random", "Fixed"])
+
+    seed = None
+    if seed_mode == "Fixed":
+        seed = st.number_input("Fixed Seed", min_value=0, max_value=999999999, value=123456, step=1)
+
+    negative_prompt = st.text_input(
+        "Negative Prompt",
+        placeholder="blurry, distorted face, bad anatomy, extra fingers...",
+    )
+
+    if st.button("GENERATE IMAGE", use_container_width=True, type="primary"):
+        if not prompt.strip():
+            st.warning("Önce bir prompt gir.")
         else:
-            st.markdown('<div class="kogce-panel" style="height:520px;display:flex;align-items:center;justify-content:center;color:#666b76;">Generated images will appear here</div>', unsafe_allow_html=True)
-        if st.session_state.last_enhanced_prompt:
-            with st.expander("Son final prompt"):
-                st.code(st.session_state.last_enhanced_prompt, language="text")
+            final_prompt = build_image_prompt(
+                prompt, style, lighting, camera, quality, color_mood, negative_prompt
+            )
 
-    with right:
-        st.markdown('<div class="kogce-panel-title">Prompt</div>', unsafe_allow_html=True)
-        prompt = st.text_area("Prompt", placeholder="Describe the image you want to create...", height=180, label_visibility="collapsed", key="image_prompt")
-        negative_prompt = st.text_input("Negative prompt", placeholder="blurry, distorted, bad anatomy...", key="image_negative")
-        st.markdown("### Generation")
+            if ai_boost:
+                with st.spinner("Prompt Robotu profesyonel prompt hazırlıyor..."):
+                    final_prompt = local_prompt_robot(
+                        prompt, style, lighting, camera, quality, color_mood, negative_prompt
+                    )
+                if not final_prompt:
+                    st.error("Prompt Robotu boş bir prompt oluşturdu.")
+                    st.stop()
+                st.session_state.last_enhanced_prompt = final_prompt
+
+            if not LOCAL_BACKEND_URL:
+                st.warning("Tulpar backend adresi tanımlanmamış.")
+                st.stop()
+
+            progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+            status_box = st.empty()
+            with st.spinner("Qwen Image / Tulpar görsel oluşturuyor..."):
+                image, error = generate_image(
+                    final_prompt, width, height, seed=seed,
+                    progress_bar=progress, status_box=status_box,
+                )
+
+            if error:
+                st.error("Görsel üretilemedi.")
+                st.code(error)
+            elif image:
+                st.image(image, use_container_width=True)
+                image_buffer = io.BytesIO()
+                image.save(image_buffer, format="PNG")
+                image_bytes = image_buffer.getvalue()
+                st.download_button(
+                    "PNG İndir", data=image_bytes,
+                    file_name="kogce_ai_image.png", mime="image/png",
+                    use_container_width=True,
+                )
+                st.session_state.gallery.append({
+                    "image": image_bytes,
+                    "prompt": prompt,
+                    "final_prompt": final_prompt,
+                })
+                st.session_state.last_prompt = prompt
+                st.success("Görsel başarıyla üretildi.")
+
+# ============================================================
+# CHARACTER PAGE
+# ============================================================
+
+elif page == "character":
+    st.markdown("<div class='k-section-title'>Character Studio</div>", unsafe_allow_html=True)
+    st.markdown("<div class='k-section-sub'>Referans görseli yükle; identity, yüz, vücut ve kıyafet korumasını kontrol et.</div>", unsafe_allow_html=True)
+
+    character_file = st.file_uploader(
+        "Referans fotoğraf", type=["png", "jpg", "jpeg", "webp"], key="character_upload_new"
+    )
+    if character_file:
+        character_image = Image.open(character_file).convert("RGB")
+        st.image(character_image, caption="Referans karakter", width=420)
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            preserve_face = st.checkbox("Yüzü koru", value=True)
+        with c2:
+            preserve_body = st.checkbox("Vücudu koru", value=True)
+        with c3:
+            preserve_clothes = st.checkbox("Kıyafeti koru", value=False)
+
+        identity_strength = st.slider("Identity / Reference Gücü", 0.10, 1.00, 0.85, 0.05)
+        character_style = st.selectbox("Stil", [
+            "Photorealistic", "Cinematic", "Anime", "3D Render", "Stylized 3D",
+            "Fantasy", "Fashion Editorial", "Dark Cinematic",
+        ], key="character_style_new")
+        instruction = st.text_area(
+            "Ne değiştirmek istiyorsun?", height=180,
+            placeholder="Aynı kişi kalsın. Yüzü ve vücut yapısı korunsun. Kıyafeti değiştir...",
+        )
+
+        if st.button("GENERATE CHARACTER", use_container_width=True, type="primary"):
+            if not instruction.strip():
+                st.warning("Önce yapılacak değişikliği yaz.")
+            elif not LOCAL_BACKEND_URL:
+                st.warning("Tulpar backend henüz bağlanmadı.")
+            else:
+                image_buffer = io.BytesIO()
+                character_image.save(image_buffer, format="PNG")
+                progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                status_box = st.empty()
+                with st.spinner("Karakter pipeline çalışıyor..."):
+                    result, error = generate_character_image(
+                        image_buffer.getvalue(), instruction, character_style,
+                        identity_strength, preserve_face, preserve_body,
+                        preserve_clothes, progress_bar=progress, status_box=status_box,
+                    )
+                if error:
+                    st.error("Karakter üretilemedi.")
+                    st.code(error)
+                elif result:
+                    st.image(result, use_container_width=True)
+                    output = io.BytesIO()
+                    result.save(output, format="PNG")
+                    st.download_button(
+                        "Karakter PNG İndir", data=output.getvalue(),
+                        file_name="kogce_character.png", mime="image/png",
+                        use_container_width=True,
+                    )
+
+# ============================================================
+# VIDEO PAGE
+# ============================================================
+
+elif page == "video":
+    st.markdown("<div class='k-section-title'>Video Studio</div>", unsafe_allow_html=True)
+    st.markdown("<div class='k-section-sub'>Wan 2.1 T2V / I2V — üretim Tulpar / ComfyUI üzerinde çalışır.</div>", unsafe_allow_html=True)
+
+    video_mode = st.radio("Mode", ["Text → Video", "Image → Video"], horizontal=True)
+
+    if video_mode == "Text → Video":
+        video_prompt = st.text_area(
+            "Video Prompt", height=170,
+            placeholder="A man walking naturally through a rainy street at night...",
+        )
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            video_style = st.selectbox("Style", ["Automatic", "Photorealistic", "Cinematic", "Anime", "3D", "Fantasy"], key="video_style_new")
+        with c2:
+            camera_motion = st.selectbox("Camera", ["Static camera", "Slow push in", "Slow pull out", "Tracking shot", "Pan", "Tilt", "Handheld"], key="camera_motion_new")
+        with c3:
+            motion_level = st.selectbox("Motion", ["Subtle", "Natural", "Dynamic"], key="motion_level_new")
+
+        duration = st.selectbox("Duration", ["33 frame", "49 frame"], key="video_duration_new")
+        num_frames = 33 if duration == "33 frame" else 49
+        steps = st.slider("Inference Steps", 8, 30, 20, key="video_steps_new")
+
+        if st.button("GENERATE VIDEO", use_container_width=True, type="primary"):
+            if not video_prompt.strip():
+                st.warning("Önce video promptu gir.")
+            elif not LOCAL_BACKEND_URL:
+                st.warning("Tulpar video backend henüz bağlanmadı.")
+            else:
+                final_video_prompt = (
+                    f"{video_prompt.strip()}. Visual style: {video_style}. "
+                    f"Camera movement: {camera_motion}. Motion intensity: {motion_level}. "
+                    "Natural realistic motion and consistent subject appearance."
+                )
+                progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                status_box = st.empty()
+                with st.spinner("Wan 2.1 video oluşturuyor..."):
+                    video, error = generate_text_video(
+                        final_video_prompt, num_frames=num_frames, steps=steps,
+                        progress_bar=progress, status_box=status_box,
+                    )
+                if error:
+                    st.error("Video üretilemedi.")
+                    st.code(error)
+                elif video:
+                    st.session_state.generated_video = video
+                    st.session_state.video_filename = "kogce_text_to_video.mp4"
+                    st.video(video)
+                    st.download_button(
+                        "MP4 İndir", data=video,
+                        file_name=st.session_state.video_filename,
+                        mime="video/mp4", use_container_width=True,
+                    )
+                    st.success("Video başarıyla üretildi.")
+
+    else:
+        uploaded_file = st.file_uploader(
+            "Başlangıç görseli", type=["png", "jpg", "jpeg", "webp"], key="video_image_upload_new"
+        )
+        motion_prompt = st.text_area(
+            "Motion Prompt", height=150,
+            placeholder="The subject walks naturally, clothes move with the wind, slow cinematic tracking...",
+        )
         c1, c2 = st.columns(2)
         with c1:
-            style = st.selectbox("Style", ["Automatic","Photorealistic","Cinematic","Anime","3D Render","Stylized 3D","Cartoon","Fantasy","Cyberpunk","Product Photography","Fashion Editorial","Dark Cinematic"], key="image_style")
-            lighting = st.selectbox("Lighting", ["Automatic","Natural daylight","Cinematic lighting","Soft studio lighting","Golden hour","Blue hour","Neon lighting","Dramatic lighting","Low-key lighting","Volumetric lighting","Rainy night lighting"], key="image_lighting")
-            quality = st.selectbox("Quality", ["Automatic","High detail","Ultra detailed","Photographic realism","Cinematic quality","Sharp professional image"], key="image_quality")
+            video_duration = st.selectbox("Duration", ["33 frame", "49 frame"], key="i2v_duration_new")
         with c2:
-            camera = st.selectbox("Camera", ["Automatic","Close-up portrait","Medium shot","Full body shot","Wide cinematic shot","Low angle","High angle","Eye level","Aerial perspective","Over-the-shoulder"], key="image_camera")
-            aspect_ratio = st.selectbox("Aspect ratio", ["1:1","9:16","16:9"], key="image_ratio")
-            color_mood = st.selectbox("Color / mood", ["Automatic","Natural colors","Dark moody","Warm cinematic","Cool cinematic","Neon futuristic","Muted realistic","High contrast"], key="image_mood")
-        resolutions = {"1:1":(768,768), "9:16":(768,1344), "16:9":(1344,768)}
-        width, height = resolutions[aspect_ratio]
-        a,b = st.columns(2)
-        with a:
-            ai_boost = st.toggle("Prompt Robotu", value=True, key="image_ai_boost")
-        with b:
-            seed_mode = st.selectbox("Seed", ["Random","Fixed"], key="image_seed_mode")
-        seed = None
-        if seed_mode == "Fixed":
-            seed = st.number_input("Seed", min_value=0, max_value=999999999, value=123456, step=1, key="image_seed")
-        st.caption(f"Output: {width} × {height}")
-        if st.button("Generate image", type="primary", use_container_width=True, key="generate_image_btn"):
-            if not prompt.strip():
-                st.warning("Önce prompt gir.")
-            elif not LOCAL_BACKEND_URL:
-                st.warning("Tulpar backend adresi tanımlanmamış.")
-            else:
-                final_prompt = build_image_prompt(prompt, style, lighting, camera, quality, color_mood, negative_prompt)
-                if ai_boost:
-                    with st.spinner("Prompt hazırlanıyor..."):
-                        final_prompt = local_prompt_robot(prompt, style, lighting, camera, quality, color_mood, negative_prompt)
-                    st.session_state.last_enhanced_prompt = final_prompt
-                progress = st.progress(0.0, text="Starting...")
-                status_box = st.empty()
-                with st.spinner("Tulpar görsel oluşturuyor..."):
-                    image, error = generate_image(final_prompt, width, height, seed=seed, progress_bar=progress, status_box=status_box)
-                if error:
-                    st.error("Görsel üretilemedi.")
-                    st.code(error)
-                elif image:
-                    buf = io.BytesIO(); image.save(buf, format="PNG"); image_bytes = buf.getvalue()
-                    st.session_state.gallery.append({"image":image_bytes,"prompt":prompt,"final_prompt":final_prompt})
-                    st.session_state.last_prompt = prompt
-                    st.rerun()
+            video_steps = st.slider("Steps", 8, 30, 20, key="i2v_steps_new")
 
-# ============================================================
-# CHARACTER
-# ============================================================
-elif st.session_state.active_page == "Karakter":
-    st.markdown('<div class="kogce-section">Character Studio</div>', unsafe_allow_html=True)
-    st.caption("Reference image editing and identity preservation.")
-    left, right = st.columns([1.2, 1], gap="large")
-    with left:
-        uploaded = st.file_uploader("Reference image", type=["png","jpg","jpeg","webp"], key="character_upload_new")
-        if uploaded:
-            character_image = Image.open(uploaded).convert("RGB")
-            st.image(character_image, use_container_width=True)
-        else:
-            st.markdown('<div class="kogce-panel" style="height:420px;display:flex;align-items:center;justify-content:center;color:#666b76;">Upload a reference image</div>', unsafe_allow_html=True)
-    with right:
-        instruction = st.text_area("Edit instruction", height=190, placeholder="Keep the same person. Change the clothes, hairstyle and environment...", key="character_instruction_new")
-        character_style = st.selectbox("Style", ["Photorealistic","Cinematic","Anime","3D Render","Stylized 3D","Fantasy","Fashion Editorial","Dark Cinematic"], key="character_style_new")
-        identity_strength = st.slider("Reference strength", .10, 1.00, .85, .05, key="identity_strength_new")
-        c1,c2,c3=st.columns(3)
-        with c1: preserve_face=st.checkbox("Face", True, key="preserve_face_new")
-        with c2: preserve_body=st.checkbox("Body", True, key="preserve_body_new")
-        with c3: preserve_clothes=st.checkbox("Clothes", False, key="preserve_clothes_new")
-        if st.button("Generate character", type="primary", use_container_width=True, key="generate_character_new"):
-            if not uploaded: st.warning("Referans görsel yükle.")
-            elif not instruction.strip(): st.warning("Değişikliği yaz.")
-            elif not LOCAL_BACKEND_URL: st.warning("Tulpar backend adresi tanımlanmamış.")
-            else:
-                buf=io.BytesIO(); character_image.save(buf,format="PNG")
-                progress=st.progress(0.0,text="Starting..."); status_box=st.empty()
-                with st.spinner("Character pipeline çalışıyor..."):
-                    result,error=generate_character_image(buf.getvalue(),instruction,character_style,identity_strength,preserve_face,preserve_body,preserve_clothes,progress,status_box)
-                if error: st.error(error)
-                elif result:
-                    st.image(result,use_container_width=True)
-                    out=io.BytesIO(); result.save(out,format="PNG")
-                    st.download_button("Download PNG",out.getvalue(),"kogce_character.png","image/png",use_container_width=True)
-
-# ============================================================
-# VIDEO
-# ============================================================
-elif st.session_state.active_page == "Video":
-    st.markdown('<div class="kogce-section">Video Studio</div>', unsafe_allow_html=True)
-    st.caption("Wan 2.1 video tools running through the local Tulpar / ComfyUI pipeline.")
-    mode=st.radio("Mode",["Text → Video","Image → Video","Long Video"],horizontal=True,key="video_mode_new")
-    if mode == "Text → Video":
-        left,right=st.columns([1.5,1],gap="large")
-        with left:
-            video_prompt=st.text_area("Video prompt",height=210,placeholder="A man walks naturally through a rainy street...",key="video_prompt_new")
-        with right:
-            video_style=st.selectbox("Style",["Automatic","Photorealistic","Cinematic","Anime","3D","Fantasy"],key="video_style_new")
-            camera_motion=st.selectbox("Camera",["Static camera","Slow push in","Slow pull out","Tracking shot","Pan","Tilt","Handheld"],key="video_camera_new")
-            motion_level=st.selectbox("Motion",["Subtle","Natural","Dynamic"],key="video_motion_new")
-            duration=st.selectbox("Duration",["33 frame","49 frame"],key="video_duration_new")
-            steps=st.slider("Inference steps",8,30,20,key="video_steps_new")
-        if st.button("Generate video",type="primary",use_container_width=True,key="generate_t2v_new"):
-            if not video_prompt.strip(): st.warning("Video promptu gir.")
-            elif not LOCAL_BACKEND_URL: st.warning("Tulpar backend adresi tanımlanmamış.")
-            else:
-                frames=33 if duration.startswith("33") else 49
-                final=f"{video_prompt.strip()}. Visual style: {video_style}. Camera movement: {camera_motion}. Motion intensity: {motion_level}. Natural realistic motion and consistent subject appearance."
-                progress=st.progress(0.0,text="Starting..."); status_box=st.empty()
-                with st.spinner("Wan 2.1 video oluşturuyor..."):
-                    video,error=generate_text_video(final,frames,steps,progress,status_box)
-                if error: st.error(error); st.code(error)
-                elif video:
-                    st.session_state.generated_video=video; st.session_state.video_filename="kogce_text_to_video.mp4"; st.video(video)
-                    st.download_button("Download MP4",video,st.session_state.video_filename,"video/mp4",use_container_width=True)
-    elif mode == "Image → Video":
-        left,right=st.columns([1.2,1],gap="large")
-        with left:
-            uploaded_file=st.file_uploader("Starting image",type=["png","jpg","jpeg","webp"],key="video_image_upload_new")
-            if uploaded_file:
-                image=Image.open(uploaded_file).convert("RGB"); st.image(image,use_container_width=True)
-        with right:
-            motion_prompt=st.text_area("Motion prompt",height=180,placeholder="The subject moves naturally...",key="motion_prompt_new")
-            video_duration=st.selectbox("Duration",["33 frame","49 frame"],key="i2v_duration_new")
-            video_steps=st.slider("Steps",8,30,20,key="i2v_steps_new")
-            if st.button("Generate image → video",type="primary",use_container_width=True,key="generate_i2v_new"):
-                if not uploaded_file: st.warning("Başlangıç görseli yükle.")
-                elif not motion_prompt.strip(): st.warning("Motion prompt gir.")
-                elif not LOCAL_BACKEND_URL: st.warning("Tulpar backend adresi tanımlanmamış.")
+        if uploaded_file:
+            image = Image.open(uploaded_file).convert("RGB")
+            st.image(image, caption="Source Image", width=520)
+            if st.button("IMAGE → VIDEO", use_container_width=True, type="primary"):
+                if not motion_prompt.strip():
+                    st.warning("Hareket promptu gir.")
+                elif not LOCAL_BACKEND_URL:
+                    st.warning("Tulpar backend henüz bağlanmadı.")
                 else:
-                    buf=io.BytesIO(); image.save(buf,format="PNG"); frames=33 if video_duration.startswith("33") else 49
-                    progress=st.progress(0.0,text="Starting..."); status_box=st.empty()
-                    with st.spinner("Wan 2.1 image-to-video çalışıyor..."):
-                        video,error=generate_image_video(buf.getvalue(),motion_prompt,frames,video_steps,progress,status_box)
-                    if error: st.error(error); st.code(error)
+                    buffer = io.BytesIO()
+                    image.save(buffer, format="PNG")
+                    frames = 33 if video_duration == "33 frame" else 49
+                    progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
+                    status_box = st.empty()
+                    with st.spinner("Wan 2.1 görseli videoya dönüştürüyor..."):
+                        video, error = generate_image_video(
+                            buffer.getvalue(), motion_prompt,
+                            num_frames=frames, steps=video_steps,
+                            progress_bar=progress, status_box=status_box,
+                        )
+                    if error:
+                        st.error("Image → Video üretilemedi.")
+                        st.code(error)
                     elif video:
-                        st.session_state.generated_video=video; st.session_state.video_filename="kogce_image_to_video.mp4"; st.video(video)
-                        st.download_button("Download MP4",video,st.session_state.video_filename,"video/mp4",use_container_width=True)
-    else:
-        st.markdown("### AI Long Video")
-        story=st.text_area("Story / master prompt",height=180,placeholder="Describe the complete story and its sequence...",key="long_story_new")
-        c1,c2,c3=st.columns(3)
-        with c1: total_seconds=st.selectbox("Total duration",list(range(1,61)),index=19,format_func=lambda x:f"{x} seconds",key="long_total_new")
-        with c2: clip_seconds=st.selectbox("Clip duration",[1,2,3],index=1,format_func=lambda x:f"{x} seconds",key="long_clip_new")
-        with c3: long_steps=st.slider("Steps",8,30,20,key="long_steps_new")
-        if total_seconds % clip_seconds != 0: st.error("Toplam süre klip süresinin tam katı olmalı.")
-        else:
-            c1,c2,c3=st.columns(3)
-            with c1: long_style=st.selectbox("Style",["Automatic","Photorealistic","Cinematic","3D Cartoon","2D Animation","Anime","Fantasy","Claymation","Stop Motion","Comic / Stylized","Pixel Art"],key="long_style_new")
-            with c2: long_camera=st.selectbox("Camera",["Automatic","Static camera","Slow push in","Slow pull out","Tracking shot","Pan","Tilt","Handheld","Dolly"],key="long_camera_new")
-            with c3: long_motion=st.selectbox("Motion",["Subtle","Natural","Dynamic"],index=1,key="long_motion_new")
-            c1,c2=st.columns(2)
-            with c1: long_ratio=st.selectbox("Aspect ratio",["9:16 — Shorts / Reels / TikTok","16:9 — YouTube","1:1 — Square","4:5 — Portrait"],key="long_ratio_new")
-            with c2: long_size=st.selectbox("Final size",["1080×1920","720×1280","1080×1080","1080×1350","1920×1080","720×720"],key="long_size_new")
-            if st.button("Generate long video",type="primary",use_container_width=True,key="generate_long_new"):
-                if not story.strip(): st.warning("Hikâyeyi gir.")
-                elif not LOCAL_BACKEND_URL: st.warning("Tulpar backend adresi tanımlanmamış.")
-                else:
-                    with st.spinner("AI video planı hazırlanıyor..."):
-                        video,error=generate_long_video(story,total_seconds,clip_seconds,long_style,long_camera,long_motion,long_ratio,long_size,long_steps)
-                    if error: st.error(error); st.code(error)
-                    elif video:
-                        st.session_state.generated_video=video; st.session_state.video_filename=f"kogce_long_{total_seconds}s.mp4"; st.video(video)
-                        st.download_button("Download MP4",video,st.session_state.video_filename,"video/mp4",use_container_width=True)
+                        st.session_state.generated_video = video
+                        st.session_state.video_filename = "kogce_image_to_video.mp4"
+                        st.video(video)
+                        st.download_button(
+                            "MP4 İndir", data=video,
+                            file_name=st.session_state.video_filename,
+                            mime="video/mp4", use_container_width=True,
+                        )
 
 # ============================================================
-# AI TOOLS
+# AI TOOLS PAGE
 # ============================================================
-elif st.session_state.active_page == "AI Araçları":
-    st.markdown('<div class="kogce-section">AI Production Tools</div>', unsafe_allow_html=True)
-    tool=st.selectbox("Tool",["AI Prompt Robotu","AI Senaryo Yazarı","AI Sahne Planlayıcı","AI Video Prompt Üretici","AI Shorts Fikir Motoru"],key="ai_tool_new")
+
+elif page == "tools":
+    st.markdown("<div class='k-section-title'>AI Tools</div>", unsafe_allow_html=True)
+    st.markdown("<div class='k-section-sub'>Prompt, script, scene planning, video prompts and Shorts ideas.</div>", unsafe_allow_html=True)
+
+    tool = st.selectbox("Tool", [
+        "AI Prompt Robotu", "AI Senaryo Yazarı", "AI Sahne Planlayıcı",
+        "AI Video Prompt Üretici", "AI Shorts Fikir Motoru",
+    ])
+
     if tool == "AI Prompt Robotu":
-        idea=st.text_area("Idea",height=180,placeholder="Kısa fikrini yaz...",key="tool_idea_new")
-        if st.button("Create prompt",type="primary",key="tool_prompt_btn"):
-            result,error=call_ai("""You are an expert professional image-generation prompt engineer. Transform the user's idea into an extremely detailed but coherent English image-generation prompt. Preserve the intended meaning. Return only the final prompt.""",idea,temperature=.75,max_tokens=1800) if idea.strip() else (None,"Önce fikir gir.")
-            if error: st.error(error)
-            else: st.text_area("Generated prompt",value=result,height=350,key="tool_prompt_result")
+        idea = st.text_area("Fikrin", height=150, placeholder="Kısa fikrini yaz...")
+        if st.button("PROMPT OLUŞTUR", use_container_width=True, type="primary"):
+            if not idea.strip():
+                st.warning("Önce fikir gir.")
+            else:
+                with st.spinner("Profesyonel prompt hazırlanıyor..."):
+                    result, error = call_ai(
+                        """You are an expert professional image-generation prompt engineer.\nTransform the user's idea into an extremely detailed but coherent English image-generation prompt.\nInclude subject, appearance, environment, composition, camera, lens, lighting, materials, textures, colors, atmosphere, depth, realism and visual quality.\nPreserve the user's intended meaning. Do not invent major story elements. Return only the final prompt.""",
+                        idea, temperature=0.75, max_tokens=1800,
+                    )
+                if error: st.error(error)
+                else: st.text_area("Generated Prompt", value=result, height=330)
+
     elif tool == "AI Senaryo Yazarı":
-        topic=st.text_area("Video konusu",height=160,key="script_topic_new"); duration=st.selectbox("Target duration",["30 saniye","60 saniye","90 saniye","3 dakika"],key="script_duration_new")
-        if st.button("Create script",type="primary",key="script_btn_new"):
-            result,error=call_ai("""You are a professional short-form video script writer. Create a complete engaging script with Hook, Setup, Development, Retention moments, Payoff and Ending. Use natural language and strong visual moments.""",f"Topic: {topic}\nTarget duration: {duration}",temperature=.8,max_tokens=2500) if topic.strip() else (None,"Konu gir.")
-            if error: st.error(error)
-            else: st.session_state.last_script=result; st.text_area("Script",value=result,height=450,key="script_result_new")
+        topic = st.text_area("Video konusu", height=150)
+        duration = st.selectbox("Hedef süre", ["30 saniye", "60 saniye", "90 saniye", "3 dakika"])
+        if st.button("SENARYO YAZ", use_container_width=True, type="primary"):
+            if not topic.strip():
+                st.warning("Konu gir.")
+            else:
+                with st.spinner("Senaryo hazırlanıyor..."):
+                    result, error = call_ai(
+                        """You are a professional short-form video script writer.\nCreate a complete engaging script.\nStructure: Hook, Setup, Development, Retention moments, Payoff, Ending.\nUse natural language and strong visual moments.""",
+                        f"Topic:\n{topic}\n\nTarget duration:\n{duration}",
+                        temperature=0.8, max_tokens=2500,
+                    )
+                if error: st.error(error)
+                else:
+                    st.session_state.last_script = result
+                    st.text_area("Senaryo", value=result, height=450)
+
     elif tool == "AI Sahne Planlayıcı":
-        script=st.text_area("Script",height=250,key="scene_script_new")
-        if st.button("Plan scenes",type="primary",key="scene_btn_new"):
-            result,error=call_ai("""You are a professional film director, storyboard artist and AI video production planner. Break the script into logical visual scenes. For every scene provide number, duration, visual description, camera movement, character action, environment, lighting, audio/SFX and AI generation notes. Maintain consistency.""",script,temperature=.75,max_tokens=3000) if script.strip() else (None,"Senaryo gir.")
-            if error: st.error(error)
-            else: st.session_state.last_scenes=result; st.text_area("Scene plan",value=result,height=550,key="scene_result_new")
+        script = st.text_area("Senaryoyu gir", height=250)
+        if st.button("SAHNELERİ PLANLA", use_container_width=True, type="primary"):
+            if not script.strip():
+                st.warning("Önce senaryo gir.")
+            else:
+                with st.spinner("Sahne planı hazırlanıyor..."):
+                    result, error = call_ai(
+                        """You are a professional film director, storyboard artist and AI video production planner.\nBreak the script into logical visual scenes.\nFor every scene provide: scene number, duration, visual description, camera movement, character action, environment, lighting, audio/SFX and AI generation notes.\nMaintain character and visual consistency.""",
+                        script, temperature=0.75, max_tokens=3000,
+                    )
+                if error: st.error(error)
+                else:
+                    st.session_state.last_scenes = result
+                    st.text_area("Sahne Planı", value=result, height=550)
+
     elif tool == "AI Video Prompt Üretici":
-        scene=st.text_area("Scene idea",height=180,key="video_tool_scene_new")
-        if st.button("Create video prompt",type="primary",key="video_tool_btn_new"):
-            result,error=call_ai("""You are an expert AI video-generation prompt engineer. Convert the scene into a production-ready English video prompt. Focus on subject movement, camera movement, environment movement, lighting, realistic physics, cinematic composition, depth, timing, atmosphere and consistency. Return only the final prompt.""",scene,temperature=.75,max_tokens=1800) if scene.strip() else (None,"Sahne fikri gir.")
-            if error: st.error(error)
-            else: st.session_state.last_video_prompt=result; st.text_area("Video prompt",value=result,height=350,key="video_tool_result_new")
+        scene = st.text_area("Sahne fikri", height=180)
+        if st.button("VIDEO PROMPT OLUŞTUR", use_container_width=True, type="primary"):
+            if not scene.strip():
+                st.warning("Sahne fikri gir.")
+            else:
+                with st.spinner("Video prompt hazırlanıyor..."):
+                    result, error = call_ai(
+                        """You are an expert AI video-generation prompt engineer.\nConvert the scene into a production-ready English video prompt.\nFocus on subject movement, camera movement, environment movement, lighting, realistic physics, cinematic composition, depth, timing, atmosphere and visual consistency.\nReturn only the final video prompt.""",
+                        scene, temperature=0.75, max_tokens=1800,
+                    )
+                if error: st.error(error)
+                else:
+                    st.session_state.last_video_prompt = result
+                    st.text_area("Video Prompt", value=result, height=350)
+
     else:
-        niche=st.text_input("Niche / topic",placeholder="AI, gaming, animals, satisfying...",key="shorts_niche_new"); count=st.slider("Idea count",5,20,10,key="shorts_count_new")
-        if st.button("Generate ideas",type="primary",key="shorts_btn_new"):
-            result,error=call_ai("""You are a global short-form video strategist. Generate original YouTube Shorts concepts with strong first-second hooks, visual simplicity, curiosity, replayability, international appeal and easy AI/video production. For each: title, hook, concept, retention mechanism, visual production idea.""",f"Niche: {niche}\nNumber: {count}",temperature=.9,max_tokens=3500) if niche.strip() else (None,"Bir niş gir.")
-            if error: st.error(error)
-            else: st.text_area("Shorts ideas",value=result,height=600,key="shorts_result_new")
+        niche = st.text_input("Niş / konu", placeholder="AI, gaming, animals, satisfying...")
+        count = st.slider("Fikir sayısı", 5, 20, 10)
+        if st.button("FİKİRLERİ ÜRET", use_container_width=True, type="primary"):
+            if not niche.strip():
+                st.warning("Bir niş gir.")
+            else:
+                with st.spinner("Shorts fikirleri hazırlanıyor..."):
+                    result, error = call_ai(
+                        """You are a global short-form video strategist.\nGenerate original YouTube Shorts concepts.\nPrioritize strong first-second hooks, visual simplicity, high retention, curiosity, replayability, international appeal and easy AI/video production.\nFor each idea provide title, hook, concept, retention mechanism and visual production idea. Avoid generic repetition.""",
+                        f"Niche:\n{niche}\n\nNumber:\n{count}",
+                        temperature=0.9, max_tokens=3500,
+                    )
+                if error: st.error(error)
+                else: st.text_area("Shorts Fikirleri", value=result, height=600)
 
 # ============================================================
-# GALLERY
+# GALLERY PAGE
 # ============================================================
-elif st.session_state.active_page == "Galeri":
-    st.markdown('<div class="kogce-section">Gallery</div>', unsafe_allow_html=True)
-    st.caption("Current Streamlit session outputs.")
+
+elif page == "gallery":
+    st.markdown("<div class='k-section-title'>Gallery</div>", unsafe_allow_html=True)
+    st.markdown("<div class='k-section-sub'>Bu Streamlit oturumunda oluşturulan görseller.</div>", unsafe_allow_html=True)
+
     if not st.session_state.gallery:
-        st.info("Henüz görsel yok.")
+        st.info("Henüz oluşturulmuş bir görsel yok.")
     else:
-        items=list(reversed(st.session_state.gallery))
-        for start in range(0,len(items),4):
-            cols=st.columns(4,gap="small")
-            for col,item in zip(cols,items[start:start+4]):
+        # Leonardo-like compact gallery grid
+        items = list(reversed(st.session_state.gallery))
+        for start in range(0, len(items), 3):
+            cols = st.columns(3)
+            for col, item in zip(cols, items[start:start+3]):
                 with col:
-                    st.image(item["image"],use_container_width=True)
-                    with st.expander("Details"):
-                        st.caption(item["prompt"])
-                        st.code(item["final_prompt"],language="text")
+                    st.image(item["image"], use_container_width=True)
+                    st.caption(item["prompt"])
+                    with st.expander("Prompt"):
+                        st.code(item["final_prompt"], language="text")
 
 # ============================================================
-# SYSTEM
+# SYSTEM PAGE
 # ============================================================
-else:
-    st.markdown('<div class="kogce-section">System</div>', unsafe_allow_html=True)
-    st.caption("Runtime status and active model information.")
-    c1,c2,c3,c4=st.columns(4)
-    with c1: st.metric("Prompt AI","ONLINE" if HF_API_KEY else "OFFLINE")
-    with c2: st.metric("Image","Qwen Image 2.1")
-    with c3: st.metric("Tulpar","ONLINE" if local_backend_available() else "OFFLINE")
-    with c4: st.metric("Gallery",len(st.session_state.gallery))
+
+elif page == "system":
+    st.markdown("<div class='k-section-title'>System</div>", unsafe_allow_html=True)
+    st.markdown("<div class='k-section-sub'>KOGCE üretim motorlarının bağlantı durumu.</div>", unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("HF API", "ONLINE" if HF_API_KEY else "MISSING")
+    with col2:
+        st.metric("Image", "QWEN 2.1")
+    with col3:
+        st.metric("Tulpar", "ONLINE" if local_backend_available() else "OFFLINE")
+    with col4:
+        st.metric("Gallery", len(st.session_state.gallery))
+
     st.divider()
-    st.markdown("### Active image model")
+    st.write("**Aktif Görsel Modeli**")
     st.code("Comfy-Org/Qwen-Image-2.1 • Tulpar / ComfyUI")
-    st.markdown("### Prompt model")
+    st.write("**Prompt Modeli**")
     st.code(PROMPT_MODEL)
-    st.markdown("### Tulpar backend")
-    st.code(LOCAL_BACKEND_URL or "Not configured")
-    st.markdown("### Session")
-    st.write(f"Gallery: **{len(st.session_state.gallery)}** images")
-    st.write("Latest video: **available**" if st.session_state.generated_video else "Latest video: **none**")
+    st.write("**Tulpar Backend**")
+    st.code(LOCAL_BACKEND_URL or "LOCAL_BACKEND_URL tanımlanmadı")
+    st.write("**Oturum**")
+    st.write(f"Galerideki görsel sayısı: **{len(st.session_state.gallery)}**")
+    if st.session_state.generated_video:
+        st.success("Son video üretimi mevcut.")
+    else:
+        st.info("Bu oturumda başarılı video üretimi yok.")
+
+st.caption("KOGCE AI Studio • Local / Private Creative Workspace")
