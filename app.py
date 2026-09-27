@@ -448,55 +448,6 @@ st.html(
         border-color: rgba(255,255,255,0.065);
     }
 
-    /* ========================================================
-       LEONARDO-STYLE WORKSPACE OVERRIDES
-       ======================================================== */
-    .stApp { background: #050507 !important; }
-    .block-container { max-width: 1180px !important; padding-top: 1.1rem !important; }
-    .studio-header {
-        display:flex; justify-content:space-between; align-items:center;
-        padding: 8px 4px 22px 4px; margin-bottom: 8px;
-        border-bottom:1px solid rgba(255,255,255,.08);
-    }
-    .studio-brand { font-size:26px; font-weight:900; letter-spacing:-.045em; color:#fff; }
-    .studio-brand span { color:#8b5cf6; }
-    .studio-subtitle { color:#66636d; font-size:10px; letter-spacing:.22em; margin-top:3px; }
-    .studio-page { color:#aaa7b2; font-size:13px; font-weight:700; }
-    .nav-label { color:#77737e; font-size:11px; letter-spacing:.18em; margin:8px 0 10px; }
-    section[data-testid="stSidebar"] { background:#09090c !important; border-right:1px solid #1d1d23 !important; }
-    section[data-testid="stSidebar"] .stRadio > label { display:none !important; }
-    section[data-testid="stSidebar"] [role="radiogroup"] { gap:8px !important; }
-    section[data-testid="stSidebar"] [role="radio"] {
-        background:#15151a !important; border:1px solid #25252c !important;
-        border-radius:14px !important; padding:13px 15px !important;
-        color:#e9e7ef !important; margin:0 !important;
-    }
-    section[data-testid="stSidebar"] [role="radio"]:has(input:checked) {
-        background:#7c5ce8 !important; border-color:#8f72f2 !important; color:#fff !important;
-    }
-    section[data-testid="stSidebar"] [role="radio"] div { color:inherit !important; }
-    .kogce-hero { padding:18px 4px 22px !important; margin-bottom:16px !important; background:transparent !important; border:0 !important; box-shadow:none !important; }
-    .kogce-eyebrow { color:#77737e !important; font-size:10px !important; letter-spacing:.18em !important; }
-    .kogce-title { font-size:clamp(34px,6vw,58px) !important; margin-bottom:10px !important; }
-    .kogce-subtitle { max-width:760px !important; color:#85818d !important; }
-    .kogce-card { background:#101014 !important; border:1px solid #24242b !important; border-radius:20px !important; box-shadow:none !important; padding:20px !important; }
-    textarea, input, [data-baseweb="select"] > div { background:#111116 !important; color:#f4f2f7 !important; border-color:#303039 !important; }
-    textarea { min-height:140px; }
-    textarea::placeholder, input::placeholder { color:#686570 !important; }
-    .stSelectbox [data-baseweb="select"] > div { border-radius:14px !important; }
-    .stButton > button { background:#17171c !important; border:1px solid #2b2b34 !important; box-shadow:none !important; border-radius:14px !important; min-height:48px !important; }
-    .stButton > button:hover { background:#22222a !important; border-color:#6551b9 !important; transform:none !important; }
-    .stDownloadButton > button { background:#17171c !important; border-color:#2b2b34 !important; }
-    .stTabs { display:none !important; }
-    @media (max-width: 700px) {
-        .block-container { padding: .8rem 1rem 3rem !important; }
-        .studio-header { padding-bottom:16px; }
-        .studio-brand { font-size:22px; }
-        .studio-page { font-size:12px; }
-        .kogce-title { font-size:38px !important; }
-        .kogce-subtitle { font-size:14px !important; }
-    }
-
     </style>
     """
 )
@@ -1209,22 +1160,21 @@ with st.sidebar:
 
     st.html(
         """
-        <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:-0.05em;margin:4px 0 2px;">KOGCE <span style="color:#8b5cf6">AI</span></div>
-        <div style="color:#66636d;font-size:10px;letter-spacing:.18em;margin-bottom:18px;">CREATIVE STUDIO</div>
+        <div class="kogce-eyebrow">
+            KOGCE
+        </div>
+
+        <div style="
+            color:#ffffff;
+            font-size:25px;
+            font-weight:900;
+            letter-spacing:-0.04em;
+            margin-bottom:16px;
+        ">
+            AI Studio
+        </div>
         """
     )
-
-    st.divider()
-
-    st.markdown("<div class=\"nav-label\">CREATE</div>", unsafe_allow_html=True)
-    active_page = st.radio(
-        "Studio bölümü",
-        PAGE_OPTIONS,
-        index=PAGE_OPTIONS.index(st.session_state.active_page),
-        label_visibility="collapsed",
-        key="page_nav",
-    )
-    st.session_state.active_page = active_page
 
     st.divider()
 
@@ -1303,33 +1253,26 @@ st.html(
 
 
 # ============================================================
-# NAVIGATION
+# TABS
 # ============================================================
 
-PAGE_OPTIONS = [
-    "Görsel", "Karakter", "Video", "AI Araçları", "Galeri", "Sistem"
-]
-if "active_page" not in st.session_state:
-    st.session_state.active_page = "Görsel"
-active_page = st.session_state.active_page
-
-# Main page header is intentionally compact; the real tools live below.
-st.html(
-    f"""
-    <div class="studio-header">
-        <div>
-            <div class="studio-brand">KOGCE <span>AI</span></div>
-            <div class="studio-subtitle">LOCAL CREATIVE WORKSPACE</div>
-        </div>
-        <div class="studio-page">{active_page}</div>
-    </div>
-    """
+tabs = st.tabs(
+    [
+        "✦ Görsel",
+        "🎭 Karakter",
+        "🎬 Video",
+        "🧠 AI Araçları",
+        "🖼️ Galeri",
+        "⚙️ Sistem",
+    ]
 )
+
+
 # ============================================================
 # IMAGE TAB
 # ============================================================
 
-if active_page == "Görsel":
+with tabs[0]:
 
     st.html(
         """
@@ -1626,7 +1569,7 @@ if active_page == "Görsel":
 # CHARACTER STUDIO
 # ============================================================
 
-elif active_page == "Karakter":
+with tabs[1]:
 
     st.html(
         """
@@ -1645,7 +1588,10 @@ elif active_page == "Karakter":
         """
     )
 
-    st.caption("Reference image → character edit • Tulpar / ComfyUI")
+    st.info(
+        "Bu bölümün gerçek identity/reference motoru "
+        "Tulpar + ComfyUI bağlantısı tamamlandığında aktif olacak."
+    )
 
     character_file = st.file_uploader(
         "Referans fotoğraf",
@@ -1834,7 +1780,7 @@ elif active_page == "Karakter":
 # VIDEO TAB
 # ============================================================
 
-elif active_page == "Video":
+with tabs[2]:
 
     st.html(
         """
@@ -2193,7 +2139,7 @@ elif active_page == "Video":
 # AI TOOLS TAB
 # ============================================================
 
-elif active_page == "AI Araçları":
+with tabs[3]:
 
     st.html(
         """
@@ -2581,7 +2527,7 @@ Number:
 # GALLERY
 # ============================================================
 
-elif active_page == "Galeri":
+with tabs[4]:
 
     st.html(
         """
@@ -2644,7 +2590,7 @@ elif active_page == "Galeri":
 # SYSTEM
 # ============================================================
 
-elif active_page == "Sistem":
+with tabs[5]:
 
     st.html(
         """
