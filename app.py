@@ -6,7 +6,6 @@ import requests
 import streamlit as st
 
 from PIL import Image
-from huggingface_hub import InferenceClient
 
 
 # ============================================================
@@ -16,13 +15,15 @@ from huggingface_hub import InferenceClient
 APP_PASSWORD = "1234"
 
 PROMPT_MODEL = "openai/gpt-oss-120b"
-IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 
 # Tulpar / ComfyUI backend
 LOCAL_BACKEND_URL = st.secrets.get(
     "LOCAL_BACKEND_URL",
     ""
 ).strip()
+
+# Görsel/video üretiminde tek üretim motoru: Tulpar → ComfyUI → RTX 4060.
+# Harici image/video inference servisi kullanılmaz.
 
 CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
 
@@ -1229,7 +1230,7 @@ with st.sidebar:
 
     st.markdown("### Üretim Motorları")
 
-    st.caption("✦ FLUX Görsel")
+    st.caption("✦ Tulpar Görsel")
     st.caption("✦ AI Prompt Robotu")
     st.caption("✦ Karakter Stüdyosu")
     st.caption("✦ Tulpar / ComfyUI")
@@ -2487,14 +2488,6 @@ with tabs[5]:
         )
 
     st.divider()
-
-    st.subheader(
-        "Aktif Görsel Modeli"
-    )
-
-    st.code(
-        IMAGE_MODEL
-    )
 
     st.subheader(
         "Prompt Modeli"
