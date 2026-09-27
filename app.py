@@ -2682,9 +2682,13 @@ with tabs[4]:
 # SYSTEM
 # ============================================================
 
+# ============================================================
+# SYSTEM
+# ============================================================
+
 with tabs[5]:
 
-    render_html(
+    st.html(
         """
         <div class="kogce-card">
 
@@ -2703,21 +2707,18 @@ with tabs[5]:
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-
         st.metric(
             "HF API",
             "ONLINE" if HF_API_KEY else "MISSING",
         )
 
     with col2:
-
         st.metric(
             "Image",
-            "TULPAR",
+            "LOCAL / TULPAR",
         )
 
     with col3:
-
         st.metric(
             "Tulpar",
             (
@@ -2728,67 +2729,6 @@ with tabs[5]:
         )
 
     with col4:
-
-        st.metric(
-            "Gallery",
-            len(st.session_state.gallery),
-        )
-
-    st.divider()
-
-    st.subheader(
-        "Prompt Modeli"
-    )
-
-    st.code(
-        PROMPT_MODEL
-    )
-
-    st.subheader(
-        "Tulpar Backend"
-    )
-
-    if LOCAL_BACKEND_URL:
-
-        st.code(
-            LOCAL_BACKEND_URL
-        )
-
-    else:
-
-        st.info(
-            "LOCAL_BACKEND_URL henüz tanımlanmadı."
-        )
-
-    st.divider()
-
-    st.subheader(
-        "Oturum"
-    )
-
-    st.write(
-        f"Galerideki görsel sayısı: "
-        f"**{len(st.session_state.gallery)}**"
-    )
-
-    if st.session_state.generated_video:
-
-        st.success(
-            "Son video üretimi mevcut."
-        )
-
-    else:
-
-        st.info(
-            "Bu oturumda başarılı video üretimi yok."
-        )
-
-    st.divider()
-
-    st.caption(
-        "KOGCE AI Studio • Private AI Creative Workspace"
-    )
-
         st.metric(
             "Gallery",
             len(st.session_state.gallery),
