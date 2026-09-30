@@ -1,9 +1,16 @@
 import io
-import time
-import requests
+import os
 import re
-import streamlit as st
+import json
+import time
+import base64
+import mimetypes
+import threading
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlparse
 
+import requests
 from PIL import Image
 
 
@@ -13,640 +20,211 @@ from PIL import Image
 
 APP_PASSWORD = "1234"
 
-PROMPT_MODEL = "openai/gpt-oss-120b"
-IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
+# Local Tulpar / ComfyUI only.
+# If your Tulpar backend uses another local port, change only this line.
+LOCAL_BACKEND_URL = os.environ.get(
+    "KOGCE_TULPAR_URL",
+    "http://127.0.0.1:8000",
+).strip().rstrip("/")
 
-# Tulpar / ComfyUI backend
-LOCAL_BACKEND_URL = st.secrets.get(
-    "LOCAL_BACKEND_URL",
-    ""
-).strip()
+GENERATION_TIMEOUT = 1800  # 30 minutes
 
-CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
+HOST = "127.0.0.1"
+PORT = 7860
 
-# Tulpar / ComfyUI GPU üretimleri 45 saniyeden uzun sürebilir.
-GENERATION_TIMEOUT = 1800  # 30 dakika
-
-
-# ============================================================
-# PAGE CONFIG
-# ============================================================
-
-st.set_page_config(
-    page_title="KOGCE AI Studio",
-    page_icon="✦",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+gallery = []
+last_generated_video = None
+last_video_filename = None
 
 
 # ============================================================
-# SESSION STATE
-# ============================================================
-
-defaults = {
-    "authenticated": False,
-    "gallery": [],
-    "generated_video": None,
-    "video_filename": None,
-    "last_prompt": "",
-    "last_enhanced_prompt": "",
-    "last_script": "",
-    "last_scenes": "",
-    "last_video_prompt": "",
-}
-
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
-
-
-# ============================================================
-# HUGGING FACE
-# ============================================================
-
-def get_hf_key():
-    try:
-        return st.secrets["HF_API_KEY"]
-    except Exception:
-        return None
-
-
-HF_API_KEY = get_hf_key()
-
-
-# ============================================================
-# GLOBAL STYLE
-# ============================================================
-
-st.html(
-    """
-    <style>
-
-    /* ========================================================
-       KOGCE CORE
-       ======================================================== */
-
-    .stApp {
-        background:
-            radial-gradient(
-                circle at 12% 5%,
-                rgba(124, 58, 237, 0.20),
-                transparent 28%
-            ),
-            radial-gradient(
-                circle at 88% 8%,
-                rgba(168, 85, 247, 0.14),
-                transparent 30%
-            ),
-            radial-gradient(
-                circle at 50% 100%,
-                rgba(76, 29, 149, 0.13),
-                transparent 38%
-            ),
-            #07070c;
-    }
-
-    .block-container {
-        max-width: 1400px;
-        padding-top: 2.4rem;
-        padding-bottom: 4rem;
-    }
-
-    /* ========================================================
-       SIDEBAR
-       ======================================================== */
-
-    section[data-testid="stSidebar"] {
-        background:
-            linear-gradient(
-                180deg,
-                #0b0910 0%,
-                #100b18 48%,
-                #08070c 100%
-            );
-        border-right: 1px solid rgba(168, 85, 247, 0.18);
-    }
-
-    section[data-testid="stSidebar"] * {
-        color: #e9e7ef;
-    }
-
-    /* ========================================================
-       HEADINGS
-       ======================================================== */
-
-    h1,
-    h2,
-    h3,
-    h4 {
-        color: #ffffff !important;
-        font-weight: 800 !important;
-        letter-spacing: -0.035em;
-    }
-
-    /* ========================================================
-       KOGCE HERO
-       ======================================================== */
-
-    .kogce-hero {
-        position: relative;
-        overflow: hidden;
-        padding: 42px 44px;
-        margin-bottom: 28px;
-
-        border-radius: 28px;
-        border: 1px solid rgba(196, 181, 253, 0.12);
-
-        background:
-            linear-gradient(
-                135deg,
-                rgba(28, 22, 39, 0.96),
-                rgba(10, 9, 15, 0.98)
-            );
-
-        box-shadow:
-            0 25px 80px rgba(0, 0, 0, 0.40),
-            inset 0 1px 0 rgba(255,255,255,0.055);
-    }
-
-    .kogce-hero::before {
-        content: "";
-        position: absolute;
-        width: 360px;
-        height: 360px;
-        right: -140px;
-        top: -180px;
-
-        background: rgba(139, 92, 246, 0.22);
-        filter: blur(100px);
-        border-radius: 50%;
-        pointer-events: none;
-    }
-
-    .kogce-eyebrow {
-        color: #c4b5fd;
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.20em;
-        text-transform: uppercase;
-        margin-bottom: 14px;
-    }
-
-    .kogce-title {
-        position: relative;
-        color: #ffffff;
-        font-size: clamp(36px, 5vw, 62px);
-        line-height: 0.98;
-        font-weight: 900;
-        letter-spacing: -0.055em;
-        margin-bottom: 16px;
-    }
-
-    .kogce-title-accent {
-        color: #a78bfa;
-    }
-
-    .kogce-subtitle {
-        position: relative;
-        max-width: 820px;
-        color: #a7a4b2;
-        font-size: 15px;
-        line-height: 1.7;
-    }
-
-    /* ========================================================
-       CARDS
-       ======================================================== */
-
-    .kogce-card {
-        border-radius: 20px;
-        border: 1px solid rgba(255,255,255,0.075);
-
-        background:
-            linear-gradient(
-                145deg,
-                rgba(23, 20, 31, 0.90),
-                rgba(12, 11, 17, 0.92)
-            );
-
-        padding: 24px;
-
-        box-shadow:
-            0 16px 50px rgba(0,0,0,0.22),
-            inset 0 1px 0 rgba(255,255,255,0.035);
-
-        margin-bottom: 18px;
-    }
-
-    .kogce-card-title {
-        color: #ffffff;
-        font-size: 19px;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        margin-bottom: 5px;
-    }
-
-    .kogce-card-subtitle {
-        color: #8f8b99;
-        font-size: 13px;
-        line-height: 1.55;
-    }
-
-    /* ========================================================
-       FEATURE CARD
-       ======================================================== */
-
-    .kogce-feature {
-        border-radius: 18px;
-        border: 1px solid rgba(168, 85, 247, 0.16);
-        background: rgba(25, 18, 35, 0.62);
-        padding: 20px;
-        min-height: 120px;
-    }
-
-    .kogce-feature-icon {
-        font-size: 25px;
-        margin-bottom: 9px;
-    }
-
-    .kogce-feature-title {
-        color: #ffffff;
-        font-weight: 800;
-        font-size: 15px;
-        margin-bottom: 5px;
-    }
-
-    .kogce-feature-text {
-        color: #92909b;
-        font-size: 12px;
-        line-height: 1.5;
-    }
-
-    /* ========================================================
-       BUTTONS
-       ======================================================== */
-
-    .stButton > button {
-        min-height: 46px;
-
-        border-radius: 13px;
-        border: 1px solid rgba(168, 85, 247, 0.30);
-
-        background:
-            linear-gradient(
-                135deg,
-                #7c3aed,
-                #5b21b6
-            );
-
-        color: #ffffff !important;
-        font-weight: 800;
-
-        box-shadow:
-            0 10px 28px rgba(76, 29, 149, 0.25),
-            inset 0 1px 0 rgba(255,255,255,0.10);
-
-        transition:
-            transform 0.18s ease,
-            border-color 0.18s ease,
-            box-shadow 0.18s ease;
-    }
-
-    .stButton > button:hover {
-        transform: translateY(-1px);
-        border-color: rgba(221, 214, 254, 0.65);
-
-        box-shadow:
-            0 14px 35px rgba(76, 29, 149, 0.34),
-            inset 0 1px 0 rgba(255,255,255,0.13);
-    }
-
-    /* ========================================================
-       INPUTS
-       ======================================================== */
-
-    textarea,
-    input {
-        border-radius: 13px !important;
-    }
-
-    textarea {
-        background: rgba(255,255,255,0.97) !important;
-        color: #17131d !important;
-    }
-
-    input {
-        background: rgba(255,255,255,0.97) !important;
-        color: #17131d !important;
-    }
-
-    textarea::placeholder,
-    input::placeholder {
-        color: #74717a !important;
-    }
-
-    /* ========================================================
-       LABELS
-       ======================================================== */
-
-    .stTextInput label,
-    .stTextArea label,
-    .stSelectbox label,
-    .stRadio label,
-    .stCheckbox label,
-    .stToggle label,
-    .stSlider label,
-    .stFileUploader label {
-        color: #e8e5ed !important;
-        font-weight: 700 !important;
-    }
-
-    /* ========================================================
-       TABS
-       ======================================================== */
-
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 7px;
-        background: transparent;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        color: #918e9c;
-        font-weight: 750;
-        border-radius: 12px;
-        padding: 10px 16px;
-    }
-
-    .stTabs [aria-selected="true"] {
-        color: #ffffff !important;
-        background: rgba(124, 58, 237, 0.16);
-    }
-
-    /* ========================================================
-       FILE UPLOADER
-       ======================================================== */
-
-    [data-testid="stFileUploaderDropzone"] {
-        background: rgba(19, 16, 26, 0.90);
-        border: 1px dashed rgba(168, 85, 247, 0.38);
-        border-radius: 15px;
-    }
-
-    /* ========================================================
-       DOWNLOAD
-       ======================================================== */
-
-    .stDownloadButton > button {
-        border-radius: 13px;
-        background: rgba(26, 19, 36, 0.94);
-        border: 1px solid rgba(168, 85, 247, 0.28);
-        color: #ffffff !important;
-        font-weight: 750;
-    }
-
-    /* ========================================================
-       METRICS
-       ======================================================== */
-
-    div[data-testid="stMetric"] {
-        background: rgba(25, 18, 36, 0.70);
-        border: 1px solid rgba(168, 85, 247, 0.18);
-        border-radius: 15px;
-        padding: 16px;
-    }
-
-    div[data-testid="stMetricValue"] {
-        color: #ffffff !important;
-    }
-
-    div[data-testid="stMetric"] label {
-        color: #9d99a7 !important;
-    }
-
-    /* ========================================================
-       ALERTS
-       ======================================================== */
-
-    .stAlert {
-        border-radius: 13px;
-    }
-
-    /* ========================================================
-       IMAGE
-       ======================================================== */
-
-    [data-testid="stImage"] img {
-        border-radius: 17px;
-    }
-
-    /* ========================================================
-       DIVIDER
-       ======================================================== */
-
-    hr {
-        border-color: rgba(255,255,255,0.065);
-    }
-
-    </style>
-    """
-)
-
-
-# ============================================================
-# AI CORE
-# ============================================================
-
-def call_ai(
-    system_prompt,
-    user_prompt,
-    temperature=0.7,
-    max_tokens=1800,
-):
-
-    if not HF_API_KEY:
-        return None, "HF_API_KEY bulunamadı."
-
-    headers = {
-        "Authorization": f"Bearer {HF_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": PROMPT_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ],
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
-
-    try:
-
-        response = requests.post(
-            CHAT_URL,
-            headers=headers,
-            json=payload,
-            timeout=180,
-        )
-
-        if response.status_code != 200:
-
-            return (
-                None,
-                f"AI API hatası: {response.status_code}\n"
-                f"{response.text}",
-            )
-
-        data = response.json()
-
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-        )
-
-        if isinstance(content, list):
-
-            content = "".join(
-                item.get("text", "")
-                for item in content
-                if isinstance(item, dict)
-            )
-
-        if not content:
-
-            return None, "AI boş cevap döndürdü."
-
-        return str(content).strip(), None
-
-    except requests.exceptions.Timeout:
-
-        return None, "AI bağlantısı zaman aşımına uğradı."
-
-    except Exception as e:
-
-        return None, f"AI bağlantı hatası: {e}"
-
-
-# ============================================================
-# LOCAL PROMPT ROBOT — NO HUGGING FACE
+# LOCAL PROMPT ROBOT
 # ============================================================
 
 def clean_prompt(value):
     if value is None:
         return ""
-    return " ".join(str(value).replace("\x00", " ").split()).strip()
+    return " ".join(
+        str(value).replace("\x00", " ").split()
+    ).strip()
 
 
-def local_prompt_robot(prompt, style, lighting, camera, quality, color_mood, negative_prompt):
+def local_prompt_robot(
+    prompt,
+    style,
+    lighting,
+    camera,
+    quality,
+    color_mood,
+    negative_prompt,
+):
     """
-    Convert a short Turkish/mixed-language idea into a polished English
-    image-generation prompt without using Hugging Face or any paid API.
+    Existing local prompt robot from the supplied app.
+    No Hugging Face, no external AI API.
     """
     prompt = clean_prompt(prompt)
+
     if not prompt:
         return ""
 
     phrase_replacements = {
-        "zombilerden kaçan sevimli gri kedi": "a cute gray cat running away from zombies",
-        "zombilerden kaçan sevimli gri cat": "a cute gray cat running away from zombies",
-        "zombilerden kaçan": "running away from zombies",
-        "zombilerden kaçıyor": "running away from zombies",
-        "zombiler": "zombies",
-        "zombi": "zombie",
-        "sevimli gri kedi": "a cute gray cat",
-        "gri kedi": "a gray cat",
-        "sevimli kedi": "a cute cat",
-        "sevimli köpek": "a cute dog",
-        "kaçan": "running away",
-        "kaçıyor": "is running away",
-        "koşuyor": "is running",
-        "koşan": "running",
-        "yürüyor": "is walking",
-        "yürüyen": "walking",
-        "oturuyor": "is sitting",
-        "oturan": "sitting",
-        "ayakta duran": "standing",
-        "ayakta": "standing",
-        "sevimli": "cute",
-        "gri": "gray",
-        "kedi": "cat",
-        "köpek": "dog",
-        "araba": "car",
-        "otomobil": "car",
-        "kırmızı": "red",
-        "mavi": "blue",
-        "siyah": "black",
-        "beyaz": "white",
-        "yeşil": "green",
-        "sarı": "yellow",
-        "gerçekçi": "photorealistic",
-        "fotogerçekçi": "photorealistic",
-        "sinematik": "cinematic",
-        "detaylı": "highly detailed",
-        "çok detaylı": "highly detailed",
-        "gece": "at night",
-        "gündüz": "during daytime",
-        "yağmur": "rainy",
-        "karlı": "snowy",
-        "kar": "snow",
-        "deniz": "sea",
-        "sahil": "seaside",
-        "plaj": "beach",
-        "şehir": "city",
-        "sokak": "street",
-        "kadın": "woman",
-        "adam": "man",
-        "erkek": "man",
-        "çocuk": "child",
-        "mutlu": "happy",
-        "üzgün": "sad",
-        "gülümseyen": "smiling",
+        "zombilerden kaçan sevimli gri kedi":
+            "a cute gray cat running away from zombies",
+        "zombilerden kaçan sevimli gri cat":
+            "a cute gray cat running away from zombies",
+        "zombilerden kaçan":
+            "running away from zombies",
+        "zombilerden kaçıyor":
+            "running away from zombies",
+        "zombiler":
+            "zombies",
+        "zombi":
+            "zombie",
+        "sevimli gri kedi":
+            "a cute gray cat",
+        "gri kedi":
+            "a gray cat",
+        "sevimli kedi":
+            "a cute cat",
+        "sevimli köpek":
+            "a cute dog",
+        "kaçan":
+            "running away",
+        "kaçıyor":
+            "is running away",
+        "koşuyor":
+            "is running",
+        "koşan":
+            "running",
+        "yürüyor":
+            "is walking",
+        "yürüyen":
+            "walking",
+        "oturuyor":
+            "is sitting",
+        "oturan":
+            "sitting",
+        "ayakta duran":
+            "standing",
+        "ayakta":
+            "standing",
+        "sevimli":
+            "cute",
+        "gri":
+            "gray",
+        "kedi":
+            "cat",
+        "köpek":
+            "dog",
+        "araba":
+            "car",
+        "otomobil":
+            "car",
+        "kırmızı":
+            "red",
+        "mavi":
+            "blue",
+        "siyah":
+            "black",
+        "beyaz":
+            "white",
+        "yeşil":
+            "green",
+        "sarı":
+            "yellow",
+        "gerçekçi":
+            "photorealistic",
+        "fotogerçekçi":
+            "photorealistic",
+        "sinematik":
+            "cinematic",
+        "detaylı":
+            "highly detailed",
+        "çok detaylı":
+            "highly detailed",
+        "gece":
+            "at night",
+        "gündüz":
+            "during daytime",
+        "yağmur":
+            "rainy",
+        "karlı":
+            "snowy",
+        "kar":
+            "snow",
+        "deniz":
+            "sea",
+        "sahil":
+            "seaside",
+        "plaj":
+            "beach",
+        "şehir":
+            "city",
+        "sokak":
+            "street",
+        "kadın":
+            "woman",
+        "adam":
+            "man",
+        "erkek":
+            "man",
+        "çocuk":
+            "child",
+        "mutlu":
+            "happy",
+        "üzgün":
+            "sad",
+        "gülümseyen":
+            "smiling",
     }
 
     translated = prompt
-    for tr, en in sorted(phrase_replacements.items(), key=lambda x: len(x[0]), reverse=True):
-        translated = re.sub(rf"(?<!\w){re.escape(tr)}(?!\w)", en, translated, flags=re.IGNORECASE)
+
+    for tr, en in sorted(
+        phrase_replacements.items(),
+        key=lambda x: len(x[0]),
+        reverse=True,
+    ):
+        translated = re.sub(
+            rf"(?<!\w){re.escape(tr)}(?!\w)",
+            en,
+            translated,
+            flags=re.IGNORECASE,
+        )
 
     translated = clean_prompt(translated)
     parts = [translated]
 
     if style != "Automatic":
         parts.append(f"Visual style: {style}.")
+
     if lighting != "Automatic":
         parts.append(f"Lighting: {lighting}.")
+
     if camera != "Automatic":
         parts.append(f"Camera and composition: {camera}.")
+
     if quality != "Automatic":
         parts.append(f"Image quality: {quality}.")
+
     if color_mood != "Automatic":
         parts.append(f"Color and mood: {color_mood}.")
 
     parts.append(
-        "Professional commercial image, coherent composition, accurate perspective, "
-        "clear subject hierarchy, natural depth, physically plausible lighting, "
-        "realistic materials and textures, consistent subject details, "
-        "cinematic visual quality, high visual fidelity."
+        "Professional commercial image, coherent composition, "
+        "accurate perspective, clear subject hierarchy, natural depth, "
+        "physically plausible lighting, realistic materials and textures, "
+        "consistent subject details, cinematic visual quality, "
+        "high visual fidelity."
     )
 
-    neg = clean_prompt(negative_prompt)
-    if neg:
-        parts.append(f"Avoid: {neg}.")
+    negative = clean_prompt(negative_prompt)
+
+    if negative:
+        parts.append(f"Avoid: {negative}.")
 
     return clean_prompt(" ".join(parts))
 
-
-# ============================================================
-# IMAGE PROMPT BUILDER
-# ============================================================
 
 def build_image_prompt(
     prompt,
@@ -657,169 +235,85 @@ def build_image_prompt(
     color_mood,
     negative_prompt,
 ):
-
     parts = [prompt.strip()]
 
     if style != "Automatic":
-
-        parts.append(
-            f"Visual style: {style}."
-        )
+        parts.append(f"Visual style: {style}.")
 
     if lighting != "Automatic":
-
-        parts.append(
-            f"Lighting: {lighting}."
-        )
+        parts.append(f"Lighting: {lighting}.")
 
     if camera != "Automatic":
-
-        parts.append(
-            f"Camera and composition: {camera}."
-        )
+        parts.append(f"Camera and composition: {camera}.")
 
     if quality != "Automatic":
-
-        parts.append(
-            f"Image quality: {quality}."
-        )
+        parts.append(f"Image quality: {quality}.")
 
     if color_mood != "Automatic":
-
-        parts.append(
-            f"Color and mood: {color_mood}."
-        )
+        parts.append(f"Color and mood: {color_mood}.")
 
     if negative_prompt.strip():
-
         parts.append(
-            "Avoid: "
-            + negative_prompt.strip()
-            + "."
+            "Avoid: " +
+            negative_prompt.strip() +
+            "."
         )
 
     return " ".join(parts)
 
 
 # ============================================================
-# IMAGE GENERATION — TULPAR / COMFYUI
-# ============================================================
-
-def generate_image(
-    prompt,
-    width,
-    height,
-    seed=None,
-    progress_bar=None,
-    status_box=None,
-):
-    """Tulpar üzerindeki Qwen Image 2.1 ile gerçek job polling kullanarak görsel üretir."""
-    payload = {
-        "prompt": str(prompt),
-        "width": int(width),
-        "height": int(height),
-    }
-    if seed is not None:
-        payload["seed"] = int(seed)
-
-    response, error = local_backend_request(
-        "/generate-image",
-        payload,
-        timeout=30,
-        form=True,
-    )
-    if error:
-        return None, error
-
-    try:
-        data = response.json()
-    except Exception as e:
-        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
-
-    job_id = data.get("job_id")
-    if not job_id:
-        return None, f"Tulpar job_id döndürmedi: {data}"
-
-    result, error = poll_backend_job(
-        job_id,
-        progress_bar=progress_bar,
-        status_box=status_box,
-        timeout=GENERATION_TIMEOUT,
-    )
-    if error:
-        return None, error
-
-    raw, error = download_backend_result(result)
-    if error:
-        return None, error
-
-    try:
-        return Image.open(io.BytesIO(raw)).convert("RGB"), None
-    except Exception as e:
-        return None, f"Görsel sonucu okunamadı: {e}"
-
-
-# ============================================================
-# LOCAL BACKEND
+# TULPAR / COMFYUI BACKEND
 # ============================================================
 
 def local_backend_available():
-
     if not LOCAL_BACKEND_URL:
-
         return False
 
     try:
-
         response = requests.get(
-            f"{LOCAL_BACKEND_URL.rstrip('/')}/health",
-            timeout=8,
+            f"{LOCAL_BACKEND_URL}/health",
+            timeout=5,
         )
-
         return response.status_code == 200
-
     except Exception:
-
         return False
 
 
 def local_backend_request(
     endpoint,
-    payload,
+    payload=None,
     files=None,
     timeout=30,
     form=False,
 ):
-    """Send only short-lived requests to Tulpar.
-
-    Long GPU jobs are handled through job_id + polling so Cloudflare
-    Quick Tunnel never has to keep one HTTP request open for minutes.
+    """
+    Short-lived request to Tulpar.
+    GPU work itself is handled through job_id + polling.
     """
     if not LOCAL_BACKEND_URL:
-        return None, (
-            "Tulpar backend adresi henüz tanımlanmamış."
-        )
+        return None, "Tulpar backend adresi tanımlanmamış."
 
     try:
-        url = LOCAL_BACKEND_URL.rstrip('/') + endpoint
+        url = LOCAL_BACKEND_URL + endpoint
 
         if files:
             response = requests.post(
                 url,
-                data=payload,
+                data=payload or {},
                 files=files,
                 timeout=timeout,
             )
         elif form:
             response = requests.post(
                 url,
-                data=payload,
+                data=payload or {},
                 timeout=timeout,
             )
         else:
             response = requests.post(
                 url,
-                json=payload,
+                json=payload or {},
                 timeout=timeout,
             )
 
@@ -833,100 +327,178 @@ def local_backend_request(
         return response, None
 
     except requests.exceptions.Timeout:
-        return None, "Tulpar backend başlangıç isteği zaman aşımına uğradı."
-    except requests.exceptions.RequestException as e:
-        return None, f"Tulpar bağlantı hatası: {e}"
-    except Exception as e:
-        return None, str(e)
+        return (
+            None,
+            "Tulpar backend başlangıç isteği zaman aşımına uğradı.",
+        )
+
+    except requests.exceptions.RequestException as exc:
+        return None, f"Tulpar bağlantı hatası: {exc}"
+
+    except Exception as exc:
+        return None, str(exc)
 
 
-def poll_backend_job(job_id, progress_bar=None, status_box=None, timeout=1800):
-    """Poll a Tulpar job with short HTTP requests until it really finishes."""
+def poll_backend_job(job_id, timeout=GENERATION_TIMEOUT):
     if not LOCAL_BACKEND_URL:
         return None, "Tulpar backend adresi tanımlanmamış."
 
     started = time.time()
-    last_progress = -1
 
     while True:
         if time.time() - started > timeout:
-            return None, "Tulpar üretimi izin verilen maksimum süreyi aştı."
+            return (
+                None,
+                "Tulpar üretimi izin verilen maksimum süreyi aştı.",
+            )
 
         try:
             response = requests.get(
-                f"{LOCAL_BACKEND_URL.rstrip('/')}/progress/{job_id}",
+                f"{LOCAL_BACKEND_URL}/progress/{job_id}",
                 timeout=15,
             )
 
             if response.status_code != 200:
-                return None, (
-                    f"Tulpar job durumu HTTP {response.status_code}\n"
-                    f"{response.text[:2000]}"
+                return (
+                    None,
+                    f"Tulpar job durumu HTTP "
+                    f"{response.status_code}\n"
+                    f"{response.text[:2000]}",
                 )
 
             data = response.json()
-            progress = int(data.get("progress", 0) or 0)
             status = str(data.get("status", ""))
-            message = str(data.get("message", "Üretim devam ediyor..."))
-
-            if progress_bar is not None and progress != last_progress:
-                progress_bar.progress(
-                    max(0.0, min(1.0, progress / 100.0)),
-                    text=f"%{progress} — {message}",
-                )
-                last_progress = progress
-
-            if status_box is not None:
-                status_box.caption(message)
 
             if status == "completed":
-                if progress_bar is not None:
-                    progress_bar.progress(1.0, text="%100 — Üretim tamamlandı")
                 return data, None
 
             if status == "error":
-                return None, data.get("error") or message or "Tulpar üretim hatası."
+                return (
+                    None,
+                    data.get("error")
+                    or data.get("message")
+                    or "Tulpar üretim hatası.",
+                )
 
-        except requests.exceptions.RequestException as e:
-            # A single polling failure is not a generation failure.
-            # Retry because the GPU job itself may still be running.
-            if status_box is not None:
-                status_box.caption(f"Tulpar durum bağlantısı yeniden deneniyor... ({e})")
+        except requests.exceptions.RequestException:
+            # A temporary polling failure does not cancel the GPU job.
+            pass
 
         time.sleep(1.0)
 
 
 def download_backend_result(data):
-    """Download a completed Tulpar output using its short-lived URL."""
     download_url = data.get("download_url")
+
     if not download_url:
-        return None, "Tulpar tamamlandı ancak download_url döndürmedi."
+        return (
+            None,
+            "Tulpar tamamlandı ancak download_url döndürmedi.",
+        )
 
     if download_url.startswith("/"):
-        download_url = LOCAL_BACKEND_URL.rstrip("/") + download_url
+        download_url = LOCAL_BACKEND_URL + download_url
 
     try:
-        response = requests.get(download_url, timeout=60)
+        response = requests.get(
+            download_url,
+            timeout=60,
+        )
         response.raise_for_status()
+
         if not response.content:
-            return None, "Tulpar boş bir çıktı dosyası döndürdü."
+            return (
+                None,
+                "Tulpar boş bir çıktı dosyası döndürdü.",
+            )
+
         return response.content, None
-    except requests.exceptions.RequestException as e:
-        return None, f"Tulpar çıktı dosyası alınamadı: {e}"
+
+    except requests.exceptions.RequestException as exc:
+        return (
+            None,
+            f"Tulpar çıktı dosyası alınamadı: {exc}",
+        )
 
 
 # ============================================================
-# TEXT TO VIDEO
+# IMAGE GENERATION — TULPAR / QWEN IMAGE 2.1
+# ============================================================
+
+def generate_image(
+    prompt,
+    width,
+    height,
+    seed=None,
+):
+    payload = {
+        "prompt": str(prompt),
+        "width": int(width),
+        "height": int(height),
+    }
+
+    if seed is not None:
+        payload["seed"] = int(seed)
+
+    response, error = local_backend_request(
+        "/generate-image",
+        payload,
+        timeout=30,
+        form=True,
+    )
+
+    if error:
+        return None, error
+
+    try:
+        data = response.json()
+    except Exception as exc:
+        return (
+            None,
+            f"Tulpar başlangıç cevabı okunamadı: {exc}",
+        )
+
+    job_id = data.get("job_id")
+
+    if not job_id:
+        return (
+            None,
+            f"Tulpar job_id döndürmedi: {data}",
+        )
+
+    result, error = poll_backend_job(job_id)
+
+    if error:
+        return None, error
+
+    raw, error = download_backend_result(result)
+
+    if error:
+        return None, error
+
+    try:
+        return (
+            Image.open(
+                io.BytesIO(raw)
+            ).convert("RGB"),
+            None,
+        )
+    except Exception as exc:
+        return (
+            None,
+            f"Görsel sonucu okunamadı: {exc}",
+        )
+
+
+# ============================================================
+# TEXT → VIDEO — WAN 2.1
 # ============================================================
 
 def generate_text_video(
     prompt,
     num_frames=33,
     steps=20,
-    progress_bar=None,
-    status_box=None,
 ):
-    """Start T2V quickly, then poll the job until a real file exists."""
     response, error = local_backend_request(
         "/generate-video",
         {
@@ -942,19 +514,22 @@ def generate_text_video(
 
     try:
         data = response.json()
-    except Exception as e:
-        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
+    except Exception as exc:
+        return (
+            None,
+            f"Tulpar başlangıç cevabı okunamadı: {exc}",
+        )
 
     job_id = data.get("job_id")
-    if not job_id:
-        return None, f"Tulpar job_id döndürmedi: {data}"
 
-    result, error = poll_backend_job(
-        job_id,
-        progress_bar=progress_bar,
-        status_box=status_box,
-        timeout=GENERATION_TIMEOUT,
-    )
+    if not job_id:
+        return (
+            None,
+            f"Tulpar job_id döndürmedi: {data}",
+        )
+
+    result, error = poll_backend_job(job_id)
+
     if error:
         return None, error
 
@@ -962,7 +537,7 @@ def generate_text_video(
 
 
 # ============================================================
-# IMAGE TO VIDEO
+# IMAGE → VIDEO
 # ============================================================
 
 def generate_image_video(
@@ -970,8 +545,6 @@ def generate_image_video(
     prompt,
     num_frames=33,
     steps=20,
-    progress_bar=None,
-    status_box=None,
 ):
     files = {
         "image": (
@@ -997,19 +570,22 @@ def generate_image_video(
 
     try:
         data = response.json()
-    except Exception as e:
-        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
+    except Exception as exc:
+        return (
+            None,
+            f"Tulpar başlangıç cevabı okunamadı: {exc}",
+        )
 
     job_id = data.get("job_id")
-    if not job_id:
-        return None, f"Tulpar job_id döndürmedi: {data}"
 
-    result, error = poll_backend_job(
-        job_id,
-        progress_bar=progress_bar,
-        status_box=status_box,
-        timeout=GENERATION_TIMEOUT,
-    )
+    if not job_id:
+        return (
+            None,
+            f"Tulpar job_id döndürmedi: {data}",
+        )
+
+    result, error = poll_backend_job(job_id)
+
     if error:
         return None, error
 
@@ -1028,11 +604,12 @@ def generate_character_image(
     preserve_face,
     preserve_body,
     preserve_clothes,
-    progress_bar=None,
-    status_box=None,
 ):
     if not LOCAL_BACKEND_URL:
-        return None, "Karakter motoru henüz Tulpar backend'e bağlanmadı."
+        return (
+            None,
+            "Karakter motoru henüz Tulpar backend'e bağlanmadı.",
+        )
 
     files = {
         "image": (
@@ -1041,6 +618,7 @@ def generate_character_image(
             "image/png",
         )
     }
+
     payload = {
         "instruction": instruction,
         "style": style,
@@ -1056,1651 +634,2432 @@ def generate_character_image(
         files=files,
         timeout=30,
     )
+
     if error:
         return None, error
 
     try:
         data = response.json()
-    except Exception as e:
-        return None, f"Tulpar başlangıç cevabı okunamadı: {e}"
+    except Exception as exc:
+        return (
+            None,
+            f"Tulpar başlangıç cevabı okunamadı: {exc}",
+        )
 
     job_id = data.get("job_id")
-    if not job_id:
-        return None, f"Tulpar job_id döndürmedi: {data}"
 
-    result, error = poll_backend_job(
-        job_id,
-        progress_bar=progress_bar,
-        status_box=status_box,
-        timeout=GENERATION_TIMEOUT,
-    )
+    if not job_id:
+        return (
+            None,
+            f"Tulpar job_id döndürmedi: {data}",
+        )
+
+    result, error = poll_backend_job(job_id)
+
     if error:
         return None, error
 
     raw, error = download_backend_result(result)
+
     if error:
         return None, error
 
     try:
-        return Image.open(io.BytesIO(raw)).convert("RGB"), None
-    except Exception as e:
-        return None, f"Karakter sonucu okunamadı: {e}"
-
-
-# ============================================================
-# LOGIN
-# ============================================================
-
-if not st.session_state.authenticated:
-
-    # HTML doğrudan st.html ile render ediliyor.
-    # Böylece Markdown'ın HTML'yi kod paneli olarak göstermesi
-    # ihtimali ortadan kaldırılıyor.
-
-    st.html(
-        """
-        <div class="kogce-hero">
-
-            <div class="kogce-eyebrow">
-                ✦ Private AI Creative Workspace
-            </div>
-
-            <div class="kogce-title">
-                KOGCE <span class="kogce-title-accent">AI Studio</span>
-            </div>
-
-            <div class="kogce-subtitle">
-                Create. Imagine. Generate.
-                Görsel, karakter, video ve AI üretim araçları
-                tek bir yaratıcı çalışma alanında.
-            </div>
-
-        </div>
-        """
-    )
-
-    left, center, right = st.columns(
-        [1, 1.15, 1]
-    )
-
-    with center:
-
-        st.markdown("### Studio'ya giriş")
-
-        password = st.text_input(
-            "Şifre",
-            type="password",
-            placeholder="Şifrenizi girin",
+        return (
+            Image.open(
+                io.BytesIO(raw)
+            ).convert("RGB"),
+            None,
+        )
+    except Exception as exc:
+        return (
+            None,
+            f"Karakter sonucu okunamadı: {exc}",
         )
 
-        if st.button(
-            "✦ STUDIO'YA GİR",
-            use_container_width=True,
-            type="primary",
-        ):
-
-            if password == APP_PASSWORD:
-
-                st.session_state.authenticated = True
-
-                st.rerun()
-
-            else:
-
-                st.error("Hatalı şifre.")
-
-    st.stop()
-
 
 # ============================================================
-# SIDEBAR
+# HTML / CSS
 # ============================================================
 
-with st.sidebar:
+PAGE = r"""
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KOGCE AI Studio</title>
+<style>
+*{box-sizing:border-box}
+body{
+    margin:0;
+    background:#07070c;
+    color:#eee;
+    font-family:Segoe UI,Arial,sans-serif;
+}
+body:before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    background:
+        radial-gradient(circle at 12% 5%,rgba(124,58,237,.20),transparent 28%),
+        radial-gradient(circle at 88% 8%,rgba(168,85,247,.14),transparent 30%);
+}
+.wrap{
+    max-width:1400px;
+    margin:auto;
+    padding:28px;
+}
+.hero,.card{
+    border:1px solid rgba(255,255,255,.075);
+    background:
+        linear-gradient(145deg,rgba(23,20,31,.94),rgba(12,11,17,.96));
+    border-radius:22px;
+    box-shadow:0 20px 70px rgba(0,0,0,.28);
+}
+.hero{
+    padding:42px 44px;
+    margin-bottom:22px;
+}
+.eyebrow{
+    color:#c4b5fd;
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.20em;
+    text-transform:uppercase;
+}
+h1{
+    font-size:clamp(38px,5vw,62px);
+    line-height:.98;
+    margin:14px 0 16px;
+    font-weight:900;
+    letter-spacing:-.055em;
+}
+h2,h3{
+    color:#fff;
+    letter-spacing:-.03em;
+}
+.accent{color:#a78bfa}
+.sub{
+    color:#a7a4b2;
+    max-width:820px;
+    line-height:1.7;
+}
+.card{
+    padding:24px;
+    margin:16px 0;
+}
+.card-title{
+    color:#fff;
+    font-size:19px;
+    font-weight:800;
+    margin-bottom:6px;
+}
+.card-subtitle{
+    color:#8f8b99;
+    font-size:13px;
+    line-height:1.55;
+}
+.tabs{
+    display:flex;
+    gap:7px;
+    flex-wrap:wrap;
+    margin:16px 0;
+}
+.tab{
+    border:1px solid rgba(168,85,247,.20);
+    background:#15121c;
+    color:#a9a4b1;
+}
+.tab.active{
+    background:rgba(124,58,237,.25);
+    color:#fff;
+}
+.panel{display:none}
+.panel.active{display:block}
+.grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+.grid3{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+}
+label{
+    display:block;
+    color:#e8e5ed;
+    font-weight:700;
+    margin:12px 0 7px;
+}
+input,textarea,select{
+    width:100%;
+    padding:13px;
+    border-radius:13px;
+    border:1px solid #393141;
+    background:#15121c;
+    color:#fff;
+    font-size:14px;
+}
+textarea{
+    min-height:145px;
+    resize:vertical;
+}
+input[type=checkbox]{
+    width:auto;
+    margin-right:8px;
+}
+button{
+    min-height:46px;
+    padding:12px 18px;
+    border-radius:13px;
+    border:1px solid rgba(168,85,247,.30);
+    background:linear-gradient(135deg,#7c3aed,#5b21b6);
+    color:#fff;
+    font-weight:800;
+    cursor:pointer;
+}
+button:hover{
+    border-color:rgba(221,214,254,.65);
+}
+.status{
+    margin:12px 0;
+    padding:12px 14px;
+    border-radius:12px;
+    background:#14111b;
+    color:#bbb;
+}
+.online{color:#86efac}
+.offline{color:#fca5a5}
+.progress{
+    height:9px;
+    background:#211c29;
+    border-radius:10px;
+    overflow:hidden;
+    margin-top:10px;
+}
+.bar{
+    height:100%;
+    width:0%;
+    background:#8b5cf6;
+    transition:width .3s ease;
+}
+.result{
+    margin-top:18px;
+}
+.result img,.result video{
+    max-width:100%;
+    border-radius:17px;
+}
+.download{
+    display:inline-block;
+    margin-top:12px;
+    color:#c4b5fd;
+}
+pre{
+    white-space:pre-wrap;
+    word-break:break-word;
+    background:#0d0b12;
+    border-radius:12px;
+    padding:15px;
+    color:#ddd;
+    border:1px solid rgba(255,255,255,.06);
+}
+.muted{
+    color:#92909b;
+    font-size:12px;
+    line-height:1.55;
+}
+.feature{
+    border-radius:18px;
+    border:1px solid rgba(168,85,247,.16);
+    background:rgba(25,18,35,.62);
+    padding:20px;
+    margin-top:15px;
+}
+.preview{
+    max-width:520px;
+    max-height:500px;
+    object-fit:contain;
+}
+.metric-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:12px;
+}
+.metric{
+    background:rgba(25,18,36,.70);
+    border:1px solid rgba(168,85,247,.18);
+    border-radius:15px;
+    padding:16px;
+}
+.metric .name{
+    color:#9d99a7;
+    font-size:12px;
+}
+.metric .value{
+    color:#fff;
+    font-size:20px;
+    font-weight:800;
+    margin-top:5px;
+}
+.gallery-item{
+    border-top:1px solid rgba(255,255,255,.07);
+    padding-top:18px;
+    margin-top:18px;
+}
+.gallery-item img{
+    max-width:100%;
+    border-radius:17px;
+}
+.small{
+    font-size:12px;
+    color:#92909b;
+}
+@media(max-width:900px){
+    .grid,.grid3,.metric-grid{grid-template-columns:1fr}
+    .wrap{padding:14px}
+    .hero{padding:28px}
+}
 
-    st.html(
-        """
-        <div class="kogce-eyebrow">
-            KOGCE
+/* ============================================================
+   KOGCE PRO UI OVERRIDE
+   ============================================================ */
+:root{--bg:#07070b;--panel:#0e0d14;--panel2:#12101a;--line:rgba(255,255,255,.09);--muted:#8f8b9a;--text:#f7f5fb;--accent:#8b5cf6;--accent2:#a78bfa}
+body{background:#07070b;color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body:before{background:radial-gradient(circle at 18% 0%,rgba(124,58,237,.18),transparent 30%),radial-gradient(circle at 88% 10%,rgba(59,130,246,.08),transparent 25%)}
+.wrap{max-width:1500px;padding:18px 24px 60px}
+.hero{position:relative;min-height:150px;padding:30px 34px;border-radius:24px;background:linear-gradient(135deg,rgba(19,17,27,.98),rgba(10,9,14,.98));border-color:var(--line);box-shadow:0 28px 90px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.04)}
+.hero:after{content:"";position:absolute;right:30px;top:25px;width:180px;height:180px;border-radius:50%;background:rgba(139,92,246,.16);filter:blur(55px);pointer-events:none}
+h1{font-size:42px;margin:10px 0 12px;position:relative;z-index:1}.sub{position:relative;z-index:1;font-size:13px}
+.status{display:inline-flex;align-items:center;width:max-content;min-width:170px;margin-top:15px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.045);border:1px solid var(--line);font-size:12px}
+.tabs{position:sticky;top:12px;z-index:20;margin:14px 0;padding:6px;border:1px solid var(--line);border-radius:16px;background:rgba(12,10,17,.88);backdrop-filter:blur(18px);box-shadow:0 14px 45px rgba(0,0,0,.25)}
+.tab{min-height:42px;padding:10px 15px;border-radius:11px;background:transparent;border-color:transparent;color:#8f8b9a;transition:.18s ease}
+.tab:hover{background:rgba(255,255,255,.055);transform:none}.tab.active{background:linear-gradient(135deg,rgba(124,58,237,.32),rgba(139,92,246,.12));border-color:rgba(167,139,250,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);color:#fff}
+.card{border-radius:20px;padding:26px;background:linear-gradient(145deg,rgba(18,16,25,.96),rgba(10,9,14,.98));border-color:var(--line);box-shadow:0 22px 70px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.035)}
+.card-title{font-size:20px}.card-subtitle{max-width:850px}
+label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#aaa5b5;margin:17px 0 8px}
+input,textarea,select{background:#0b0a10;border:1px solid rgba(255,255,255,.10);color:#f6f3fa;border-radius:12px;outline:none;transition:.18s ease}
+input:focus,textarea:focus,select:focus{border-color:rgba(167,139,250,.65);box-shadow:0 0 0 3px rgba(139,92,246,.12)}
+textarea{min-height:170px;font-size:15px;line-height:1.6;padding:16px}
+.grid3{gap:10px}.grid{gap:10px}
+#resolution{padding:9px 11px;margin-top:8px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.025);width:max-content}
+.feature{background:linear-gradient(145deg,rgba(21,18,31,.92),rgba(12,11,17,.92));border-color:var(--line)}
+button{min-height:44px;border-radius:11px;padding:11px 16px;border:1px solid rgba(167,139,250,.30);background:linear-gradient(135deg,#7c3aed,#6d28d9);box-shadow:0 10px 28px rgba(76,29,149,.22),inset 0 1px 0 rgba(255,255,255,.12);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+button:hover{transform:translateY(-1px);border-color:rgba(221,214,254,.7);box-shadow:0 15px 38px rgba(76,29,149,.34),inset 0 1px 0 rgba(255,255,255,.15)}
+#generateImage,#generateCharacter,#generateT2V,#generateI2V{width:100%;min-height:54px;margin-top:18px;font-size:13px;letter-spacing:.04em;background:linear-gradient(135deg,#8b5cf6,#6d28d9);border-color:rgba(196,181,253,.45);box-shadow:0 18px 45px rgba(109,40,217,.28)}
+#generateImage:before,#generateCharacter:before,#generateT2V:before,#generateI2V:before{content:"✦  ";color:#ddd6fe}
+.progress{height:7px;background:#191521;border:1px solid rgba(255,255,255,.05)}.bar{background:linear-gradient(90deg,#7c3aed,#a78bfa)}
+.result{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07)}
+.result img,.result video,.gallery-item img{box-shadow:0 20px 60px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08)}
+pre{background:#09080d;border-color:rgba(255,255,255,.08)}
+.metric-grid{gap:10px}.metric{background:#0d0c12;border-color:var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.small,.muted{color:#777382}
+@media(min-width:1100px){#image .card{padding:30px 32px}#imagePrompt{min-height:190px}#imageResult{min-height:40px}}
+@media(max-width:900px){.wrap{padding:10px}.hero{padding:25px}.tabs{position:static}.tab{flex:1}.grid,.grid3,.metric-grid{grid-template-columns:1fr}}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+    <div class="eyebrow">✦ LOCAL PRIVATE CREATIVE WORKSPACE</div>
+    <h1>KOGCE <span class="accent">AI Studio</span></h1>
+    <div class="sub">
+        Fikirden görsele, karakterden videoya.
+        Üretim motorları yalnızca Tulpar / ComfyUI üzerinden çalışır.
+    </div>
+    <div id="health" class="status">Tulpar kontrol ediliyor...</div>
+</div>
+
+<div class="tabs">
+    <button class="tab active" data-tab="image">✦ &nbsp;Image Studio</button>
+    <button class="tab" data-tab="character">◈ &nbsp;Character</button>
+    <button class="tab" data-tab="video">▶ &nbsp;Video Studio</button>
+    <button class="tab" data-tab="gallery">▦ &nbsp;Gallery</button>
+    <button class="tab" data-tab="system">⚙ &nbsp;System</button>
+</div>
+
+
+<!-- ========================================================
+     IMAGE
+     ======================================================== -->
+
+<section id="image" class="panel active">
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.07)">
+        <div><div class="card-title">Image Studio</div><div class="card-subtitle">Professional local image generation workspace</div></div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end"><span style="padding:7px 10px;border-radius:999px;background:rgba(139,92,246,.12);border:1px solid rgba(167,139,250,.20);font-size:11px;color:#c4b5fd">LOCAL</span><span style="padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);font-size:11px;color:#aaa5b5">QWEN IMAGE 2.1</span></div>
+    </div>
+    <div class="card-subtitle">
+        Fikrini yaz, üretim stilini ve görsel karakterini kontrol et.
+        Seçtiğin ayarlar gerçek prompta işlenir.
+    </div>
+
+    <label>Ana Prompt</label>
+    <textarea id="imagePrompt"
+        placeholder="Örneğin: A man walking alone through an empty rainy street at night..."></textarea>
+
+    <div class="grid3">
+
+        <div>
+            <label>Görsel Stil</label>
+            <select id="imageStyle">
+                <option>Automatic</option>
+                <option>Photorealistic</option>
+                <option>Cinematic</option>
+                <option>Anime</option>
+                <option>3D Render</option>
+                <option>Stylized 3D</option>
+                <option>Cartoon</option>
+                <option>Fantasy</option>
+                <option>Cyberpunk</option>
+                <option>Product Photography</option>
+                <option>Fashion Editorial</option>
+                <option>Dark Cinematic</option>
+            </select>
         </div>
 
-        <div style="
-            color:#ffffff;
-            font-size:25px;
-            font-weight:900;
-            letter-spacing:-0.04em;
-            margin-bottom:16px;
-        ">
-            AI Studio
-        </div>
-        """
-    )
-
-    st.divider()
-
-    if HF_API_KEY:
-
-        st.success("AI SYSTEM ONLINE")
-
-    else:
-
-        st.warning("HF KEY MISSING")
-
-    st.markdown("### Üretim Motorları")
-
-    st.caption("✦ Qwen Image 2.1 Görsel")
-    st.caption("✦ AI Prompt Robotu")
-    st.caption("✦ Karakter Stüdyosu")
-    st.caption("✦ Tulpar / ComfyUI")
-    st.caption("✦ Wan 2.1 Video")
-
-    st.divider()
-
-    if LOCAL_BACKEND_URL:
-
-        if local_backend_available():
-
-            st.success("TULPAR ONLINE")
-
-        else:
-
-            st.warning("TULPAR OFFLINE")
-
-    else:
-
-        st.info("TULPAR BAĞLANMADI")
-
-    st.divider()
-
-    st.caption(
-        f"Galeri: {len(st.session_state.gallery)} görsel"
-    )
-
-    if st.button(
-        "Çıkış Yap",
-        use_container_width=True,
-    ):
-
-        st.session_state.authenticated = False
-
-        st.rerun()
-
-
-# ============================================================
-# MAIN HEADER
-# ============================================================
-
-st.html(
-    """
-    <div class="kogce-hero">
-
-        <div class="kogce-eyebrow">
-            ✦ AI CREATIVE WORKSPACE
+        <div>
+            <label>Işık</label>
+            <select id="imageLighting">
+                <option>Automatic</option>
+                <option>Natural daylight</option>
+                <option>Cinematic lighting</option>
+                <option>Soft studio lighting</option>
+                <option>Golden hour</option>
+                <option>Blue hour</option>
+                <option>Neon lighting</option>
+                <option>Dramatic lighting</option>
+                <option>Low-key lighting</option>
+                <option>Volumetric lighting</option>
+                <option>Rainy night lighting</option>
+            </select>
         </div>
 
-        <div class="kogce-title">
-            KOGCE <span class="kogce-title-accent">AI Studio</span>
-        </div>
-
-        <div class="kogce-subtitle">
-            Fikirden görsele, karakterden videoya.
-            Üretim sürecinin bütün temel araçları tek panelde.
+        <div>
+            <label>Kamera</label>
+            <select id="imageCamera">
+                <option>Automatic</option>
+                <option>Close-up portrait</option>
+                <option>Medium shot</option>
+                <option>Full body shot</option>
+                <option>Wide cinematic shot</option>
+                <option>Low angle</option>
+                <option>High angle</option>
+                <option>Eye level</option>
+                <option>Aerial perspective</option>
+                <option>Over-the-shoulder</option>
+            </select>
         </div>
 
     </div>
-    """
-)
+
+    <div class="grid3">
+
+        <div>
+            <label>Kalite</label>
+            <select id="imageQuality">
+                <option>Automatic</option>
+                <option>High detail</option>
+                <option>Ultra detailed</option>
+                <option>Photographic realism</option>
+                <option>Cinematic quality</option>
+                <option>Sharp professional image</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Renk / Atmosfer</label>
+            <select id="imageMood">
+                <option>Automatic</option>
+                <option>Natural colors</option>
+                <option>Dark moody</option>
+                <option>Warm cinematic</option>
+                <option>Cool cinematic</option>
+                <option>Neon futuristic</option>
+                <option>Muted realistic</option>
+                <option>High contrast</option>
+            </select>
+        </div>
+
+        <div>
+            <label>Aspect Ratio</label>
+            <select id="imageRatio">
+                <option value="1:1">1:1</option>
+                <option value="9:16">9:16</option>
+                <option value="16:9">16:9</option>
+            </select>
+        </div>
+
+    </div>
+
+    <div id="resolution" class="small">Çözünürlük: 768 × 768</div>
+
+    <label>Negative Prompt</label>
+    <input id="negativePrompt"
+        placeholder="blurry, distorted face, bad anatomy, extra fingers...">
+
+    <div class="grid">
+
+        <div>
+            <label>
+                <input type="checkbox" id="promptRobot" checked>
+                🤖 Yerel Prompt Robotu
+            </label>
+        </div>
+
+        <div>
+            <label>Seed</label>
+            <select id="seedMode">
+                <option value="random">Random</option>
+                <option value="fixed">Fixed</option>
+            </select>
+            <input id="fixedSeed"
+                type="number"
+                value="123456"
+                min="0"
+                max="999999999"
+                style="display:none;margin-top:8px;">
+        </div>
+
+    </div>
+
+    <button id="generateImage">✦ GÖRSEL OLUŞTUR</button>
+
+    <div id="imageStatus"></div>
+    <div id="enhancedPrompt"></div>
+    <div id="imageResult" class="result"></div>
+</div>
+
+</section>
 
 
-# ============================================================
-# TABS
-# ============================================================
+<!-- ========================================================
+     CHARACTER
+     ======================================================== -->
 
-tabs = st.tabs(
-    [
-        "✦ Görsel",
-        "🎭 Karakter",
-        "🎬 Video",
-        "🧠 AI Araçları",
-        "🖼️ Galeri",
-        "⚙️ Sistem",
-    ]
-)
+<section id="character" class="panel">
+
+<div class="card">
+    <div class="card-title">Karakter Studio</div>
+    <div class="card-subtitle">
+        Bir referans fotoğraf yükle ve kişiyi koruyarak
+        yeni görünüm, kıyafet ve sahne tarif et.
+    </div>
+
+    <div class="feature">
+        <b>🎭 Identity Preservation</b>
+        <div class="muted">
+            Amaç; referans kişiyi korurken yalnızca tarif edilen
+            özellikleri, kıyafeti ve sahneyi değiştirmektir.
+            Gerçek identity node'ları Tulpar backend'inde kullanılacaktır.
+        </div>
+    </div>
+
+    <label>Referans fotoğraf</label>
+    <input id="characterFile"
+        type="file"
+        accept="image/png,image/jpeg,image/webp">
+
+    <div id="characterPreview"></div>
+
+    <h3>Kişiyi koruma</h3>
+
+    <div class="grid3">
+
+        <div>
+            <label>
+                <input id="preserveFace" type="checkbox" checked>
+                Yüzü koru
+            </label>
+        </div>
+
+        <div>
+            <label>
+                <input id="preserveBody" type="checkbox" checked>
+                Vücut yapısını koru
+            </label>
+        </div>
+
+        <div>
+            <label>
+                <input id="preserveClothes" type="checkbox">
+                Kıyafeti koru
+            </label>
+        </div>
+
+    </div>
+
+    <label>Identity / Reference Gücü</label>
+    <input id="identityStrength"
+        type="number"
+        min="0.10"
+        max="1.00"
+        value="0.85"
+        step="0.05">
+
+    <label>Stil</label>
+    <select id="characterStyle">
+        <option>Photorealistic</option>
+        <option>Cinematic</option>
+        <option>Anime</option>
+        <option>3D Render</option>
+        <option>Stylized 3D</option>
+        <option>Fantasy</option>
+        <option>Fashion Editorial</option>
+        <option>Dark Cinematic</option>
+    </select>
+
+    <label>Ne değiştirmek istiyorsun?</label>
+    <textarea id="characterInstruction"
+        placeholder="Adam aynı kişi olarak kalsın. Yüzü ve vücut yapısı korunsun. Kıyafeti siyah smokin olsun..."></textarea>
+
+    <button id="generateCharacter">🎭 KARAKTERİ OLUŞTUR</button>
+
+    <div id="characterStatus"></div>
+    <div id="characterResult" class="result"></div>
+</div>
+
+</section>
 
 
-# ============================================================
-# IMAGE TAB
-# ============================================================
+<!-- ========================================================
+     VIDEO
+     ======================================================== -->
 
-with tabs[0]:
+<section id="video" class="panel">
 
-    st.html(
-        """
-        <div class="kogce-card">
+<div class="card">
+    <div class="card-title">Video Studio</div>
+    <div class="card-subtitle">
+        Tulpar RTX 4060 üzerinde çalışan yerel video üretim pipeline'ı.
+    </div>
 
-            <div class="kogce-card-title">
-                Görsel Studio
+    <div id="videoBackendStatus" class="status">
+        Tulpar video backend kontrol ediliyor...
+    </div>
+
+    <label>Video türü</label>
+    <select id="videoMode">
+        <option value="t2v">Text → Video</option>
+        <option value="i2v">Image → Video</option>
+    </select>
+
+    <div id="t2vPanel">
+
+        <h3>Text → Video</h3>
+        <div class="muted">
+            Motor: Wan 2.1 T2V 1.3B • Tulpar RTX 4060
+        </div>
+
+        <label>Video Prompt</label>
+        <textarea id="videoPrompt"
+            placeholder="A man walking naturally through an empty rainy street at night, realistic body motion, cinematic camera movement..."></textarea>
+
+        <div class="grid3">
+
+            <div>
+                <label>Video Stil</label>
+                <select id="videoStyle">
+                    <option>Automatic</option>
+                    <option>Photorealistic</option>
+                    <option>Cinematic</option>
+                    <option>Anime</option>
+                    <option>3D</option>
+                    <option>Fantasy</option>
+                </select>
             </div>
 
-            <div class="kogce-card-subtitle">
-                Fikrini yaz, üretim stilini ve görsel karakterini
-                kontrol et. Seçtiğin ayarlar gerçek prompta işlenir.
+            <div>
+                <label>Kamera Hareketi</label>
+                <select id="cameraMotion">
+                    <option>Static camera</option>
+                    <option>Slow push in</option>
+                    <option>Slow pull out</option>
+                    <option>Tracking shot</option>
+                    <option>Pan</option>
+                    <option>Tilt</option>
+                    <option>Handheld</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Hareket</label>
+                <select id="motionLevel">
+                    <option>Subtle</option>
+                    <option>Natural</option>
+                    <option>Dynamic</option>
+                </select>
             </div>
 
         </div>
-        """
-    )
 
-    prompt = st.text_area(
-        "Ana Prompt",
-        placeholder=(
-            "Örneğin: A man walking alone through an empty "
-            "rainy street at night..."
-        ),
-        height=145,
-    )
+        <label>Video süresi</label>
+        <select id="t2vDuration">
+            <option value="33">Kısa — 33 frame</option>
+            <option value="49">Orta — 49 frame</option>
+        </select>
 
-    col1, col2, col3 = st.columns(3)
+        <label>Inference Steps</label>
+        <input id="t2vSteps"
+            type="number"
+            min="8"
+            max="30"
+            value="20">
 
-    with col1:
+        <div class="small">
+            RTX 4060 8 GB için önce kısa video ile başlamak daha güvenlidir.
+        </div>
 
-        style = st.selectbox(
-            "Görsel Stil",
-            [
-                "Automatic",
-                "Photorealistic",
-                "Cinematic",
-                "Anime",
-                "3D Render",
-                "Stylized 3D",
-                "Cartoon",
-                "Fantasy",
-                "Cyberpunk",
-                "Product Photography",
-                "Fashion Editorial",
-                "Dark Cinematic",
-            ],
-        )
+        <button id="generateT2V">🎬 VIDEO OLUŞTUR</button>
 
-    with col2:
+    </div>
 
-        lighting = st.selectbox(
-            "Işık",
-            [
-                "Automatic",
-                "Natural daylight",
-                "Cinematic lighting",
-                "Soft studio lighting",
-                "Golden hour",
-                "Blue hour",
-                "Neon lighting",
-                "Dramatic lighting",
-                "Low-key lighting",
-                "Volumetric lighting",
-                "Rainy night lighting",
-            ],
-        )
 
-    with col3:
+    <div id="i2vPanel" style="display:none">
 
-        camera = st.selectbox(
-            "Kamera",
-            [
-                "Automatic",
-                "Close-up portrait",
-                "Medium shot",
-                "Full body shot",
-                "Wide cinematic shot",
-                "Low angle",
-                "High angle",
-                "Eye level",
-                "Aerial perspective",
-                "Over-the-shoulder",
-            ],
-        )
+        <h3>Image → Video</h3>
+        <div class="muted">
+            Kaynak görseli Wan video pipeline'ına gönder.
+        </div>
 
-    col4, col5, col6 = st.columns(3)
+        <label>Başlangıç görseli</label>
+        <input id="videoImageFile"
+            type="file"
+            accept="image/png,image/jpeg,image/webp">
 
-    with col4:
+        <div id="videoImagePreview"></div>
 
-        quality = st.selectbox(
-            "Kalite",
-            [
-                "Automatic",
-                "High detail",
-                "Ultra detailed",
-                "Photographic realism",
-                "Cinematic quality",
-                "Sharp professional image",
-            ],
-        )
+        <label>Motion Prompt</label>
+        <textarea id="motionPrompt"
+            placeholder="The man walks naturally forward under the rain, his clothes move gently with the wind, slow cinematic camera tracking..."></textarea>
 
-    with col5:
+        <div class="grid">
 
-        color_mood = st.selectbox(
-            "Renk / Atmosfer",
-            [
-                "Automatic",
-                "Natural colors",
-                "Dark moody",
-                "Warm cinematic",
-                "Cool cinematic",
-                "Neon futuristic",
-                "Muted realistic",
-                "High contrast",
-            ],
-        )
+            <div>
+                <label>Süre</label>
+                <select id="i2vDuration">
+                    <option value="33">33 frame</option>
+                    <option value="49">49 frame</option>
+                </select>
+            </div>
 
-    with col6:
+            <div>
+                <label>Steps</label>
+                <input id="i2vSteps"
+                    type="number"
+                    min="8"
+                    max="30"
+                    value="20">
+            </div>
 
-        aspect_ratio = st.selectbox(
-            "Aspect Ratio",
-            [
-                "1:1",
-                "9:16",
-                "16:9",
-            ],
-        )
+        </div>
 
-    resolutions = {
-        "1:1": (768, 768),
-        "9:16": (768, 1344),
-        "16:9": (1344, 768),
+        <button id="generateI2V">🎬 IMAGE → VIDEO</button>
+
+    </div>
+
+    <div id="videoStatus"></div>
+    <div id="videoResult" class="result"></div>
+
+</div>
+
+</section>
+
+
+<!-- ========================================================
+     GALLERY
+     ======================================================== -->
+
+<section id="gallery" class="panel">
+
+<div class="card">
+    <div class="card-title">Galeri</div>
+    <div class="card-subtitle">
+        Bu yerel KOGCE oturumunda oluşturulan görseller.
+    </div>
+    <div id="galleryContent"></div>
+</div>
+
+</section>
+
+
+<!-- ========================================================
+     SYSTEM
+     ======================================================== -->
+
+<section id="system" class="panel">
+
+<div class="card">
+
+    <div class="card-title">System</div>
+    <div class="card-subtitle">
+        Yerel KOGCE üretim motorlarının bağlantı durumu.
+    </div>
+
+    <div class="metric-grid">
+
+        <div class="metric">
+            <div class="name">Tulpar</div>
+            <div id="metricTulpar" class="value">...</div>
+        </div>
+
+        <div class="metric">
+            <div class="name">Image</div>
+            <div class="value">QWEN 2.1</div>
+        </div>
+
+        <div class="metric">
+            <div class="name">Video</div>
+            <div class="value">WAN 2.1</div>
+        </div>
+
+        <div class="metric">
+            <div class="name">Gallery</div>
+            <div id="metricGallery" class="value">0</div>
+        </div>
+
+    </div>
+
+    <hr style="border-color:rgba(255,255,255,.065);margin:25px 0">
+
+    <h3>Aktif Görsel Modeli</h3>
+    <pre>Qwen Image 2.1 • Tulpar / ComfyUI</pre>
+
+    <h3>Aktif Video Modeli</h3>
+    <pre>Wan 2.1 T2V 1.3B • Tulpar / ComfyUI</pre>
+
+    <h3>Tulpar Backend</h3>
+    <pre id="backendEndpoint"></pre>
+
+    <h3>Oturum</h3>
+    <div class="small">
+        Galerideki görsel sayısı:
+        <b id="galleryCount">0</b>
+    </div>
+
+    <div id="lastVideoStatus" class="status">
+        Bu oturumda başarılı video üretimi yok.
+    </div>
+
+</div>
+
+</section>
+
+</div>
+
+<script>
+
+const $ = (id) => document.getElementById(id);
+
+const resolutions = {
+    "1:1": [768,768],
+    "9:16": [768,1344],
+    "16:9": [1344,768]
+};
+
+
+function escapeHtml(value) {
+    return String(value || "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+}
+
+
+function statusBox(element, message, progress=null) {
+
+    if (progress === null) {
+        element.innerHTML =
+            '<div class="status">' +
+            escapeHtml(message) +
+            '</div>';
+        return;
     }
 
-    width, height = resolutions[aspect_ratio]
+    const safeProgress =
+        Math.max(0, Math.min(100, Number(progress) || 0));
 
-    st.caption(
-        f"Çözünürlük: {width} × {height}"
-    )
+    element.innerHTML =
+        '<div class="status">' +
+        escapeHtml(message) +
+        '<div class="progress">' +
+        '<div class="bar" style="width:' +
+        safeProgress +
+        '%"></div>' +
+        '</div></div>';
+}
 
-    negative_prompt = st.text_input(
-        "Negative Prompt",
-        placeholder=(
-            "blurry, distorted face, bad anatomy, extra fingers..."
-        ),
-    )
 
-    col7, col8 = st.columns(2)
+async function pollJob(jobId, element) {
 
-    with col7:
+    while (true) {
 
-        ai_boost = st.toggle(
-            "🤖 AI Prompt Robotu",
-            value=True,
-        )
+        const response =
+            await fetch("/api/progress/" + encodeURIComponent(jobId));
 
-    with col8:
+        const data = await response.json();
 
-        seed_mode = st.selectbox(
-            "Seed",
-            [
-                "Random",
-                "Fixed",
-            ],
-        )
+        if (!response.ok) {
+            throw new Error(
+                data.error ||
+                "Tulpar job durumu alınamadı."
+            );
+        }
 
-    if seed_mode == "Fixed":
+        const progress =
+            Number(data.progress || 0);
 
-        seed = st.number_input(
-            "Sabit Seed",
-            min_value=0,
-            max_value=999999999,
-            value=123456,
-            step=1,
-        )
+        const message =
+            data.message ||
+            "Üretim devam ediyor...";
 
-    else:
+        statusBox(
+            element,
+            "%" + progress + " — " + message,
+            progress
+        );
 
-        seed = None
+        if (data.status === "completed") {
+            return data;
+        }
 
-    st.write("")
+        if (data.status === "error") {
+            throw new Error(
+                data.error ||
+                data.message ||
+                "Tulpar üretim hatası."
+            );
+        }
 
-    if st.button(
-        "✦ GÖRSEL OLUŞTUR",
-        use_container_width=True,
-        type="primary",
-    ):
+        await new Promise(
+            resolve => setTimeout(resolve,1000)
+        );
+    }
+}
 
-        if not prompt.strip():
 
-            st.warning("Önce bir prompt gir.")
+function showDownload(element, url, filename, type) {
 
-        else:
+    if (type === "video") {
 
-            final_prompt = build_image_prompt(
-                prompt,
-                style,
-                lighting,
-                camera,
-                quality,
-                color_mood,
-                negative_prompt,
-            )
+        element.innerHTML =
+            '<video controls src="' +
+            url +
+            '"></video>' +
+            '<br>' +
+            '<a class="download" href="' +
+            url +
+            '" download="' +
+            filename +
+            '">⬇️ MP4 İndir</a>';
 
-            if ai_boost:
+    } else {
 
-                with st.spinner("Yerel Prompt Robotu fikri analiz ediyor ve profesyonel İngilizce prompta dönüştürüyor..."):
-                    final_prompt = local_prompt_robot(
-                        prompt,
-                        style,
-                        lighting,
-                        camera,
-                        quality,
-                        color_mood,
-                        negative_prompt,
-                    )
+        element.innerHTML =
+            '<img src="' +
+            url +
+            '">' +
+            '<br>' +
+            '<a class="download" href="' +
+            url +
+            '" download="' +
+            filename +
+            '">⬇️ PNG İndir</a>';
+    }
+}
 
-                if not final_prompt:
-                    st.error("Prompt Robotu boş bir prompt oluşturdu.")
-                    st.stop()
 
-                st.session_state.last_enhanced_prompt = final_prompt
+async function health() {
 
-                with st.expander("Profesyonel İngilizce prompt", expanded=True):
-                    st.code(final_prompt, language="text")
+    try {
 
-            if not LOCAL_BACKEND_URL:
-                st.warning("Tulpar backend adresi tanımlanmamış.")
-                st.stop()
+        const response =
+            await fetch("/api/health");
 
-            progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
-            status_box = st.empty()
-            with st.spinner(
-                "Qwen Image 2.1 / Tulpar görsel oluşturuyor..."
-            ):
-                image, error = generate_image(
-                    final_prompt,
-                    width,
-                    height,
-                    seed=seed,
-                    progress_bar=progress,
-                    status_box=status_box,
-                )
+        const data =
+            await response.json();
 
-            if error:
+        if (data.online) {
 
-                st.error(
-                    "Görsel üretilemedi."
-                )
+            $("health").innerHTML =
+                '● <span class="online">TULPAR ONLINE</span>';
 
-                st.code(error)
+            $("videoBackendStatus").innerHTML =
+                '● <span class="online">Tulpar video backend ONLINE</span>';
 
-            elif image:
+            $("metricTulpar").innerHTML =
+                '<span class="online">ONLINE</span>';
 
-                st.image(
-                    image,
-                    use_container_width=True,
-                )
+        } else {
 
-                image_buffer = io.BytesIO()
+            $("health").innerHTML =
+                '● <span class="offline">TULPAR OFFLINE</span>';
 
-                image.save(
-                    image_buffer,
-                    format="PNG",
-                )
+            $("videoBackendStatus").innerHTML =
+                '● <span class="offline">Tulpar backend erişilemiyor</span>';
 
-                image_bytes = image_buffer.getvalue()
+            $("metricTulpar").innerHTML =
+                '<span class="offline">OFFLINE</span>';
+        }
 
-                st.download_button(
-                    "⬇️ PNG İndir",
-                    data=image_bytes,
-                    file_name="kogce_ai_image.png",
-                    mime="image/png",
-                    use_container_width=True,
-                )
+        $("backendEndpoint").textContent =
+            data.endpoint || "";
 
-                st.session_state.gallery.append(
+    } catch (error) {
+
+        $("health").innerHTML =
+            '● <span class="offline">BACKEND ERİŞİLEMİYOR</span>';
+
+        $("videoBackendStatus").innerHTML =
+            '● <span class="offline">Tulpar backend erişilemiyor</span>';
+
+        $("metricTulpar").innerHTML =
+            '<span class="offline">OFFLINE</span>';
+
+    }
+}
+
+
+document.querySelectorAll(".tab").forEach(
+    button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                document.querySelectorAll(".tab")
+                    .forEach(
+                        item => item.classList.remove("active")
+                    );
+
+                document.querySelectorAll(".panel")
+                    .forEach(
+                        item => item.classList.remove("active")
+                    );
+
+                button.classList.add("active");
+
+                $(button.dataset.tab)
+                    .classList.add("active");
+
+                if (button.dataset.tab === "gallery") {
+                    loadGallery();
+                }
+
+                if (button.dataset.tab === "system") {
+                    updateSystem();
+                }
+            }
+        );
+    }
+);
+
+
+$("imageRatio").addEventListener(
+    "change",
+    () => {
+
+        const size =
+            resolutions[$("imageRatio").value];
+
+        $("resolution").textContent =
+            "Çözünürlük: " +
+            size[0] +
+            " × " +
+            size[1];
+    }
+);
+
+
+$("seedMode").addEventListener(
+    "change",
+    () => {
+
+        $("fixedSeed").style.display =
+            $("seedMode").value === "fixed"
+                ? "block"
+                : "none";
+    }
+);
+
+
+$("videoMode").addEventListener(
+    "change",
+    () => {
+
+        const t2v =
+            $("videoMode").value === "t2v";
+
+        $("t2vPanel").style.display =
+            t2v ? "block" : "none";
+
+        $("i2vPanel").style.display =
+            t2v ? "none" : "block";
+    }
+);
+
+
+$("characterFile").addEventListener(
+    "change",
+    () => {
+
+        const file =
+            $("characterFile").files[0];
+
+        if (!file) {
+            $("characterPreview").innerHTML = "";
+            return;
+        }
+
+        const url =
+            URL.createObjectURL(file);
+
+        $("characterPreview").innerHTML =
+            '<br><img class="preview" src="' +
+            url +
+            '" alt="Referans karakter">';
+    }
+);
+
+
+$("videoImageFile").addEventListener(
+    "change",
+    () => {
+
+        const file =
+            $("videoImageFile").files[0];
+
+        if (!file) {
+            $("videoImagePreview").innerHTML = "";
+            return;
+        }
+
+        const url =
+            URL.createObjectURL(file);
+
+        $("videoImagePreview").innerHTML =
+            '<br><img class="preview" src="' +
+            url +
+            '" alt="Kaynak görsel">';
+    }
+);
+
+
+$("generateImage").addEventListener(
+    "click",
+    async () => {
+
+        const prompt =
+            $("imagePrompt").value.trim();
+
+        if (!prompt) {
+
+            statusBox(
+                $("imageStatus"),
+                "Önce bir prompt gir."
+            );
+
+            return;
+        }
+
+        const ratio =
+            $("imageRatio").value;
+
+        const size =
+            resolutions[ratio];
+
+        const payload = {
+
+            prompt: prompt,
+
+            width: size[0],
+
+            height: size[1],
+
+            style: $("imageStyle").value,
+
+            lighting: $("imageLighting").value,
+
+            camera: $("imageCamera").value,
+
+            quality: $("imageQuality").value,
+
+            color_mood: $("imageMood").value,
+
+            negative_prompt:
+                $("negativePrompt").value,
+
+            ai_boost:
+                $("promptRobot").checked,
+
+            seed:
+                $("seedMode").value === "fixed"
+                    ? Number($("fixedSeed").value)
+                    : null
+        };
+
+        $("imageResult").innerHTML = "";
+
+        statusBox(
+            $("imageStatus"),
+            "%0 — Tulpar işi başlatılıyor...",
+            0
+        );
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/generate-image",
                     {
-                        "image": image_bytes,
-                        "prompt": prompt,
-                        "final_prompt": final_prompt,
+                        method:"POST",
+                        headers:{
+                            "Content-Type":
+                                "application/json"
+                        },
+                        body:
+                            JSON.stringify(payload)
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Görsel üretimi başlatılamadı."
+                );
+            }
+
+            if (data.final_prompt) {
+
+                $("enhancedPrompt").innerHTML =
+                    '<div class="card">' +
+                    '<b>Profesyonel İngilizce prompt</b>' +
+                    '<pre>' +
+                    escapeHtml(data.final_prompt) +
+                    '</pre></div>';
+
+            } else {
+
+                $("enhancedPrompt").innerHTML = "";
+            }
+
+            const result =
+                await pollJob(
+                    data.job_id,
+                    $("imageStatus")
+                );
+
+            showDownload(
+                $("imageResult"),
+                result.download_url,
+                "kogce_ai_image.png",
+                "image"
+            );
+
+            await loadGallery();
+
+        } catch (error) {
+
+            statusBox(
+                $("imageStatus"),
+                "Görsel üretilemedi: " +
+                error.message
+            );
+        }
+    }
+);
+
+
+$("generateCharacter").addEventListener(
+    "click",
+    async () => {
+
+        const file =
+            $("characterFile").files[0];
+
+        const instruction =
+            $("characterInstruction").value.trim();
+
+        if (!file) {
+
+            statusBox(
+                $("characterStatus"),
+                "Önce referans fotoğrafı seç."
+            );
+
+            return;
+        }
+
+        if (!instruction) {
+
+            statusBox(
+                $("characterStatus"),
+                "Önce karakter üzerinde yapılacak değişikliği yaz."
+            );
+
+            return;
+        }
+
+        const form =
+            new FormData();
+
+        form.append("image",file);
+
+        form.append(
+            "instruction",
+            instruction
+        );
+
+        form.append(
+            "style",
+            $("characterStyle").value
+        );
+
+        form.append(
+            "strength",
+            $("identityStrength").value
+        );
+
+        form.append(
+            "preserve_face",
+            $("preserveFace").checked
+        );
+
+        form.append(
+            "preserve_body",
+            $("preserveBody").checked
+        );
+
+        form.append(
+            "preserve_clothes",
+            $("preserveClothes").checked
+        );
+
+        $("characterResult").innerHTML = "";
+
+        statusBox(
+            $("characterStatus"),
+            "%0 — Karakter işi başlatılıyor...",
+            0
+        );
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/generate-character",
+                    {
+                        method:"POST",
+                        body:form
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Karakter üretimi başlatılamadı."
+                );
+            }
+
+            const result =
+                await pollJob(
+                    data.job_id,
+                    $("characterStatus")
+                );
+
+            showDownload(
+                $("characterResult"),
+                result.download_url,
+                "kogce_character.png",
+                "image"
+            );
+
+        } catch (error) {
+
+            statusBox(
+                $("characterStatus"),
+                "Karakter üretilemedi: " +
+                error.message
+            );
+        }
+    }
+);
+
+
+$("generateT2V").addEventListener(
+    "click",
+    async () => {
+
+        const prompt =
+            $("videoPrompt").value.trim();
+
+        if (!prompt) {
+
+            statusBox(
+                $("videoStatus"),
+                "Önce video promptu gir."
+            );
+
+            return;
+        }
+
+        const finalPrompt =
+            prompt +
+            ". Visual style: " +
+            $("videoStyle").value +
+            ". Camera movement: " +
+            $("cameraMotion").value +
+            ". Motion intensity: " +
+            $("motionLevel").value +
+            ". Natural realistic motion and consistent subject appearance.";
+
+        const payload = {
+
+            prompt: finalPrompt,
+
+            num_frames:
+                Number($("t2vDuration").value),
+
+            steps:
+                Number($("t2vSteps").value)
+        };
+
+        $("videoResult").innerHTML = "";
+
+        statusBox(
+            $("videoStatus"),
+            "%0 — Tulpar video işi başlatılıyor...",
+            0
+        );
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/generate-video",
+                    {
+                        method:"POST",
+                        headers:{
+                            "Content-Type":
+                                "application/json"
+                        },
+                        body:
+                            JSON.stringify(payload)
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "Video üretimi başlatılamadı."
+                );
+            }
+
+            const result =
+                await pollJob(
+                    data.job_id,
+                    $("videoStatus")
+                );
+
+            showDownload(
+                $("videoResult"),
+                result.download_url,
+                "kogce_text_to_video.mp4",
+                "video"
+            );
+
+            $("lastVideoStatus").textContent =
+                "Son video üretimi mevcut.";
+
+        } catch (error) {
+
+            statusBox(
+                $("videoStatus"),
+                "Video üretilemedi: " +
+                error.message
+            );
+        }
+    }
+);
+
+
+$("generateI2V").addEventListener(
+    "click",
+    async () => {
+
+        const file =
+            $("videoImageFile").files[0];
+
+        const prompt =
+            $("motionPrompt").value.trim();
+
+        if (!file) {
+
+            statusBox(
+                $("videoStatus"),
+                "I2V için başlangıç görseli seç."
+            );
+
+            return;
+        }
+
+        if (!prompt) {
+
+            statusBox(
+                $("videoStatus"),
+                "Hareket promptu gir."
+            );
+
+            return;
+        }
+
+        const form =
+            new FormData();
+
+        form.append("image",file);
+
+        form.append(
+            "prompt",
+            prompt
+        );
+
+        form.append(
+            "num_frames",
+            $("i2vDuration").value
+        );
+
+        form.append(
+            "steps",
+            $("i2vSteps").value
+        );
+
+        $("videoResult").innerHTML = "";
+
+        statusBox(
+            $("videoStatus"),
+            "%0 — Tulpar I2V işi başlatılıyor...",
+            0
+        );
+
+        try {
+
+            const response =
+                await fetch(
+                    "/api/generate-i2v",
+                    {
+                        method:"POST",
+                        body:form
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error ||
+                    "I2V üretimi başlatılamadı."
+                );
+            }
+
+            const result =
+                await pollJob(
+                    data.job_id,
+                    $("videoStatus")
+                );
+
+            showDownload(
+                $("videoResult"),
+                result.download_url,
+                "kogce_image_to_video.mp4",
+                "video"
+            );
+
+            $("lastVideoStatus").textContent =
+                "Son video üretimi mevcut.";
+
+        } catch (error) {
+
+            statusBox(
+                $("videoStatus"),
+                "Image → Video üretilemedi: " +
+                error.message
+            );
+        }
+    }
+);
+
+
+async function loadGallery() {
+
+    try {
+
+        const response =
+            await fetch("/api/gallery");
+
+        const items =
+            await response.json();
+
+        $("metricGallery").textContent =
+            items.length;
+
+        $("galleryCount").textContent =
+            items.length;
+
+        if (!items.length) {
+
+            $("galleryContent").innerHTML =
+                '<div class="status">' +
+                'Henüz oluşturulmuş bir görsel yok.' +
+                '</div>';
+
+            return;
+        }
+
+        $("galleryContent").innerHTML =
+            items
+                .slice()
+                .reverse()
+                .map(
+                    (item,index) => {
+
+                        return (
+                            '<div class="gallery-item">' +
+                            '<h3>Üretim #' +
+                            (items.length-index) +
+                            '</h3>' +
+                            '<img src="' +
+                            item.url +
+                            '">' +
+                            '<p class="small">Orijinal Prompt</p>' +
+                            '<div>' +
+                            escapeHtml(item.prompt) +
+                            '</div>' +
+                            '<p class="small">Final Prompt</p>' +
+                            '<pre>' +
+                            escapeHtml(item.final_prompt) +
+                            '</pre>' +
+                            '</div>'
+                        );
                     }
                 )
+                .join("");
 
-                st.session_state.last_prompt = prompt
+    } catch (error) {
 
-                st.success(
-                    "Görsel başarıyla üretildi."
-                )
+        $("galleryContent").innerHTML =
+            '<div class="status">' +
+            'Galeri okunamadı.' +
+            '</div>';
+    }
+}
+
+
+async function updateSystem() {
+
+    await health();
+
+    $("metricGallery").textContent =
+        gallery.length;
+}
+
+
+health();
+
+setInterval(
+    health,
+    5000
+);
+
+</script>
+</body>
+</html>
+"""
 
 
 # ============================================================
-# CHARACTER STUDIO
+# HTTP SERVER
 # ============================================================
 
-with tabs[1]:
+def json_response(handler, status, payload):
+    raw = json.dumps(
+        payload,
+        ensure_ascii=False,
+    ).encode("utf-8")
 
-    st.html(
-        """
-        <div class="kogce-card">
+    handler.send_response(status)
+    handler.send_header(
+        "Content-Type",
+        "application/json; charset=utf-8",
+    )
+    handler.send_header(
+        "Content-Length",
+        str(len(raw)),
+    )
+    handler.end_headers()
+    handler.wfile.write(raw)
 
-            <div class="kogce-card-title">
-                Karakter Studio
-            </div>
 
-            <div class="kogce-card-subtitle">
-                Bir referans fotoğraf yükle ve kişiyi koruyarak
-                yeni görünüm, kıyafet ve sahne tarif et.
-            </div>
-
-        </div>
-        """
+def read_json_body(handler):
+    length = int(
+        handler.headers.get(
+            "Content-Length",
+            "0",
+        )
     )
 
-    st.info(
-        "Bu bölümün gerçek identity/reference motoru "
-        "Tulpar + ComfyUI bağlantısı tamamlandığında aktif olacak."
+    raw = handler.rfile.read(length)
+
+    if not raw:
+        return {}
+
+    return json.loads(
+        raw.decode("utf-8")
     )
 
-    character_file = st.file_uploader(
-        "Referans fotoğraf",
-        type=[
-            "png",
-            "jpg",
-            "jpeg",
-            "webp",
-        ],
-        key="character_upload",
+
+def parse_multipart(handler):
+    """
+    Multipart parser using Python stdlib only.
+    Returns:
+        fields: dict[str,str]
+        files: dict[str, tuple[filename, bytes, content_type]]
+    """
+    content_type = handler.headers.get(
+        "Content-Type",
+        "",
     )
 
-    if character_file:
+    match = re.search(
+        r'boundary="?([^";]+)"?',
+        content_type,
+    )
 
-        character_image = Image.open(
-            character_file
-        ).convert("RGB")
-
-        st.image(
-            character_image,
-            caption="Referans karakter",
-            width=420,
+    if not match:
+        raise ValueError(
+            "Multipart boundary bulunamadı."
         )
 
-        st.markdown("### Kişiyi koruma")
+    boundary = (
+        b"--" +
+        match.group(1).encode()
+    )
 
-        c1, c2, c3 = st.columns(3)
+    length = int(
+        handler.headers.get(
+            "Content-Length",
+            "0",
+        )
+    )
 
-        with c1:
+    body = handler.rfile.read(length)
 
-            preserve_face = st.checkbox(
-                "Yüzü koru",
-                value=True,
+    fields = {}
+    files = {}
+
+    for part in body.split(boundary)[1:]:
+
+        if part in (b"", b"--", b"--\r\n"):
+            continue
+
+        part = part.strip(b"\r\n")
+
+        if part.endswith(b"--"):
+            part = part[:-2].rstrip(b"\r\n")
+
+        header_end = part.find(
+            b"\r\n\r\n"
+        )
+
+        if header_end < 0:
+            continue
+
+        header_bytes = part[:header_end]
+        content = part[
+            header_end + 4:
+        ]
+
+        headers = {}
+
+        for line in header_bytes.split(b"\r\n"):
+
+            if b":" not in line:
+                continue
+
+            key, value = line.split(
+                b":",
+                1,
             )
 
-        with c2:
+            headers[
+                key.decode(
+                    "latin1"
+                ).strip().lower()
+            ] = value.decode(
+                "latin1"
+            ).strip()
 
-            preserve_body = st.checkbox(
-                "Vücut yapısını koru",
-                value=True,
-            )
-
-        with c3:
-
-            preserve_clothes = st.checkbox(
-                "Kıyafeti koru",
-                value=False,
-            )
-
-        identity_strength = st.slider(
-            "Identity / Reference Gücü",
-            min_value=0.10,
-            max_value=1.00,
-            value=0.85,
-            step=0.05,
+        disposition = headers.get(
+            "content-disposition",
+            "",
         )
 
-        character_style = st.selectbox(
-            "Stil",
-            [
-                "Photorealistic",
-                "Cinematic",
-                "Anime",
-                "3D Render",
-                "Stylized 3D",
-                "Fantasy",
-                "Fashion Editorial",
-                "Dark Cinematic",
-            ],
-            key="character_style",
+        name_match = re.search(
+            r'name="([^"]+)"',
+            disposition,
         )
 
-        instruction = st.text_area(
-            "Ne değiştirmek istiyorsun?",
-            height=180,
-            placeholder=(
-                "Adam aynı kişi olarak kalsın. "
-                "Yüzü ve vücut yapısı korunsun. "
-                "Kıyafeti siyah smokin olsun, ince bıyık ekle, "
-                "saçlarını omuzlarına kadar uzat. "
-                "Yağmurlu, boş bir şehir sokağında gece yürüsün."
-            ),
+        if not name_match:
+            continue
+
+        name = name_match.group(1)
+
+        filename_match = re.search(
+            r'filename="([^"]*)"',
+            disposition,
         )
 
-        st.html(
-            """
-            <div class="kogce-feature">
+        if filename_match:
 
-                <div class="kogce-feature-icon">
-                    🎭
-                </div>
+            filename = filename_match.group(1)
 
-                <div class="kogce-feature-title">
-                    Identity Preservation
-                </div>
-
-                <div class="kogce-feature-text">
-                    Amaç; referans kişiyi korurken yalnızca tarif edilen
-                    özellikleri, kıyafeti ve sahneyi değiştirmektir.
-                    Gerçek identity node'ları Tulpar backend'inde
-                    kullanılacaktır.
-                </div>
-
-            </div>
-            """
-        )
-
-        st.write("")
-
-        if st.button(
-            "🎭 KARAKTERİ OLUŞTUR",
-            use_container_width=True,
-            type="primary",
-        ):
-
-            if not instruction.strip():
-
-                st.warning(
-                    "Önce karakter üzerinde yapılacak değişikliği yaz."
-                )
-
-            elif not LOCAL_BACKEND_URL:
-
-                st.warning(
-                    "Tulpar backend henüz bağlanmadı. "
-                    "Bu buton backend bağlandığında gerçek üretim yapacak."
-                )
-
-            else:
-
-                image_buffer = io.BytesIO()
-
-                character_image.save(
-                    image_buffer,
-                    format="PNG",
-                )
-
-                with st.spinner(
-                    "Karakter reference pipeline çalışıyor..."
-                ):
-
-                    result, error = generate_character_image(
-                        image_buffer.getvalue(),
-                        instruction,
-                        character_style,
-                        identity_strength,
-                        preserve_face,
-                        preserve_body,
-                        preserve_clothes,
-                    )
-
-                if error:
-
-                    st.error(
-                        "Karakter üretilemedi."
-                    )
-
-                    st.code(error)
-
-                elif result:
-
-                    st.image(
-                        result,
-                        use_container_width=True,
-                    )
-
-                    output = io.BytesIO()
-
-                    result.save(
-                        output,
-                        format="PNG",
-                    )
-
-                    result_bytes = output.getvalue()
-
-                    st.download_button(
-                        "⬇️ Karakter PNG İndir",
-                        data=result_bytes,
-                        file_name="kogce_character.png",
-                        mime="image/png",
-                        use_container_width=True,
-                    )
-
-
-# ============================================================
-# VIDEO TAB
-# ============================================================
-
-with tabs[2]:
-
-    st.html(
-        """
-        <div class="kogce-card">
-
-            <div class="kogce-card-title">
-                Video Studio
-            </div>
-
-            <div class="kogce-card-subtitle">
-                Tulpar RTX 4060 üzerinde çalışan yerel video
-                üretim pipeline'ı için hazırlanmıştır.
-            </div>
-
-        </div>
-        """
-    )
-
-    if LOCAL_BACKEND_URL:
-
-        if local_backend_available():
-
-            st.success(
-                "● Tulpar video backend ONLINE"
+            files[name] = (
+                filename,
+                content,
+                headers.get(
+                    "content-type",
+                    "application/octet-stream",
+                ),
             )
 
         else:
 
-            st.warning(
-                "Tulpar backend adresi var fakat şu anda erişilemiyor."
+            fields[name] = content.decode(
+                "utf-8",
+                errors="replace",
             )
 
-    else:
+    return fields, files
 
-        st.info(
-            "Tulpar backend bağlantısı henüz eklenmedi."
+
+class KOGCEHandler(BaseHTTPRequestHandler):
+
+    def log_message(self, fmt, *args):
+        print(
+            "[KOGCE]",
+            fmt % args,
         )
 
-    video_mode = st.radio(
-        "Video türü",
-        [
-            "Text → Video",
-            "Image → Video",
-        ],
-        horizontal=True,
-    )
+    def send_bytes(
+        self,
+        status,
+        data,
+        content_type,
+        download_name=None,
+    ):
+        self.send_response(status)
 
-    if video_mode == "Text → Video":
-
-        st.subheader("Text → Video")
-
-        st.caption(
-            "Motor: Wan 2.1 T2V 1.3B • Tulpar RTX 4060"
+        self.send_header(
+            "Content-Type",
+            content_type,
         )
 
-        video_prompt = st.text_area(
-            "Video Prompt",
-            placeholder=(
-                "A man walking naturally through an empty rainy "
-                "street at night, realistic body motion, "
-                "cinematic camera movement..."
-            ),
-            height=160,
+        self.send_header(
+            "Content-Length",
+            str(len(data)),
         )
 
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-
-            video_style = st.selectbox(
-                "Video Stil",
-                [
-                    "Automatic",
-                    "Photorealistic",
-                    "Cinematic",
-                    "Anime",
-                    "3D",
-                    "Fantasy",
-                ],
-                key="video_style",
+        if download_name:
+            self.send_header(
+                "Content-Disposition",
+                f'attachment; filename="{download_name}"',
             )
 
-        with col2:
+        self.end_headers()
 
-            camera_motion = st.selectbox(
-                "Kamera Hareketi",
-                [
-                    "Static camera",
-                    "Slow push in",
-                    "Slow pull out",
-                    "Tracking shot",
-                    "Pan",
-                    "Tilt",
-                    "Handheld",
-                ],
+        self.wfile.write(data)
+
+    def do_GET(self):
+
+        path = urlparse(
+            self.path
+        ).path
+
+        if path == "/":
+
+            self.send_bytes(
+                200,
+                PAGE.encode("utf-8"),
+                "text/html; charset=utf-8",
             )
 
-        with col3:
+            return
 
-            motion_level = st.selectbox(
-                "Hareket",
-                [
-                    "Subtle",
-                    "Natural",
-                    "Dynamic",
-                ],
+        if path == "/api/health":
+
+            json_response(
+                self,
+                200,
+                {
+                    "online":
+                        local_backend_available(),
+                    "endpoint":
+                        LOCAL_BACKEND_URL,
+                },
             )
 
-        duration = st.selectbox(
-            "Video süresi",
-            [
-                "Kısa — 33 frame",
-                "Orta — 49 frame",
-            ],
-        )
+            return
 
-        if duration.startswith("Kısa"):
+        if path == "/api/system":
 
-            num_frames = 33
+            json_response(
+                self,
+                200,
+                {
+                    "online":
+                        local_backend_available(),
+                    "endpoint":
+                        LOCAL_BACKEND_URL,
+                },
+            )
 
-        else:
+            return
 
-            num_frames = 49
+        if path == "/api/gallery":
 
-        steps = st.slider(
-            "Inference Steps",
-            8,
-            30,
-            20,
-        )
+            json_response(
+                self,
+                200,
+                gallery,
+            )
 
-        st.caption(
-            "RTX 4060 8 GB için önce kısa video ile başlamak daha güvenlidir."
-        )
+            return
 
-        if st.button(
-            "🎬 VIDEO OLUŞTUR",
-            use_container_width=True,
-            type="primary",
+        if path.startswith(
+            "/api/progress/"
         ):
 
-            if not video_prompt.strip():
+            job_id = path.rsplit(
+                "/",
+                1,
+            )[-1]
 
-                st.warning(
-                    "Önce video promptu gir."
+            try:
+
+                response = requests.get(
+                    f"{LOCAL_BACKEND_URL}/progress/{job_id}",
+                    timeout=15,
                 )
 
-            elif not LOCAL_BACKEND_URL:
-
-                st.warning(
-                    "Tulpar video backend henüz bağlanmadı."
+                self.send_bytes(
+                    response.status_code,
+                    response.content,
+                    response.headers.get(
+                        "Content-Type",
+                        "application/json",
+                    ),
                 )
 
-            else:
+            except Exception as exc:
 
-                final_video_prompt = (
-                    f"{video_prompt.strip()}. "
-                    f"Visual style: {video_style}. "
-                    f"Camera movement: {camera_motion}. "
-                    f"Motion intensity: {motion_level}. "
-                    f"Natural realistic motion and consistent subject appearance."
+                json_response(
+                    self,
+                    503,
+                    {
+                        "error":
+                            str(exc)
+                    },
                 )
 
-                progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
-                status_box = st.empty()
+            return
 
-                with st.spinner(
-                    "Wan 2.1 video oluşturuyor..."
+        json_response(
+            self,
+            404,
+            {
+                "error":
+                    "Not found"
+            },
+        )
+
+    def do_POST(self):
+
+        path = urlparse(
+            self.path
+        ).path
+
+        try:
+
+            # ------------------------------------------------
+            # GALLERY
+            # ------------------------------------------------
+
+            if path == "/api/gallery":
+
+                data = read_json_body(
+                    self
+                )
+
+                gallery.append(
+                    data
+                )
+
+                json_response(
+                    self,
+                    200,
+                    {"ok": True},
+                )
+
+                return
+
+            # ------------------------------------------------
+            # IMAGE
+            # ------------------------------------------------
+
+            if path == "/api/generate-image":
+
+                data = read_json_body(
+                    self
+                )
+
+                prompt = clean_prompt(
+                    data.get(
+                        "prompt",
+                        "",
+                    )
+                )
+
+                if not prompt:
+                    raise ValueError(
+                        "Prompt boş."
+                    )
+
+                if data.get(
+                    "ai_boost",
+                    True,
                 ):
 
-                    video, error = generate_text_video(
-                        final_video_prompt,
-                        num_frames=num_frames,
-                        steps=steps,
-                        progress_bar=progress,
-                        status_box=status_box,
-                    )
-
-                if error:
-
-                    st.error(
-                        "Video üretilemedi."
-                    )
-
-                    st.code(error)
-
-                elif video:
-
-                    st.session_state.generated_video = video
-
-                    st.session_state.video_filename = (
-                        "kogce_text_to_video.mp4"
-                    )
-
-                    st.video(video)
-
-                    st.download_button(
-                        "⬇️ MP4 İndir",
-                        data=video,
-                        file_name=(
-                            st.session_state.video_filename
+                    final_prompt = local_prompt_robot(
+                        prompt,
+                        data.get(
+                            "style",
+                            "Automatic",
                         ),
-                        mime="video/mp4",
-                        use_container_width=True,
-                    )
-
-                    st.success(
-                        "Video başarıyla üretildi."
-                    )
-
-    else:
-
-        st.subheader("Image → Video")
-
-        st.caption(
-            "Kaynak görseli Wan video pipeline'ına gönder."
-        )
-
-        uploaded_file = st.file_uploader(
-            "Başlangıç görseli",
-            type=[
-                "png",
-                "jpg",
-                "jpeg",
-                "webp",
-            ],
-            key="video_image_upload",
-        )
-
-        motion_prompt = st.text_area(
-            "Motion Prompt",
-            placeholder=(
-                "The man walks naturally forward under the rain, "
-                "his clothes move gently with the wind, "
-                "slow cinematic camera tracking..."
-            ),
-            height=150,
-        )
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            video_duration = st.selectbox(
-                "Süre",
-                [
-                    "33 frame",
-                    "49 frame",
-                ],
-                key="i2v_duration",
-            )
-
-        with col2:
-
-            video_steps = st.slider(
-                "Steps",
-                8,
-                30,
-                20,
-                key="i2v_steps",
-            )
-
-        if uploaded_file:
-
-            image = Image.open(
-                uploaded_file
-            ).convert("RGB")
-
-            st.image(
-                image,
-                caption="Kaynak Görsel",
-                width=520,
-            )
-
-            if st.button(
-                "🎬 IMAGE → VIDEO",
-                use_container_width=True,
-                type="primary",
-            ):
-
-                if not motion_prompt.strip():
-
-                    st.warning(
-                        "Hareket promptu gir."
-                    )
-
-                elif not LOCAL_BACKEND_URL:
-
-                    st.warning(
-                        "Tulpar backend henüz bağlanmadı."
+                        data.get(
+                            "lighting",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "camera",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "quality",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "color_mood",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "negative_prompt",
+                            "",
+                        ),
                     )
 
                 else:
 
-                    buffer = io.BytesIO()
-
-                    image.save(
-                        buffer,
-                        format="PNG",
+                    final_prompt = build_image_prompt(
+                        prompt,
+                        data.get(
+                            "style",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "lighting",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "camera",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "quality",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "color_mood",
+                            "Automatic",
+                        ),
+                        data.get(
+                            "negative_prompt",
+                            "",
+                        ),
                     )
 
-                    if video_duration == "33 frame":
+                payload = {
+                    "prompt":
+                        final_prompt,
+                    "width":
+                        int(data.get(
+                            "width",
+                            768,
+                        )),
+                    "height":
+                        int(data.get(
+                            "height",
+                            768,
+                        )),
+                }
 
-                        frames = 33
-
-                    else:
-
-                        frames = 49
-
-                    progress = st.progress(0.0, text="%0 — Tulpar işi başlatılıyor...")
-                    status_box = st.empty()
-
-                    with st.spinner(
-                        "Wan 2.1 görseli videoya dönüştürüyor..."
-                    ):
-
-                        video, error = generate_image_video(
-                            buffer.getvalue(),
-                            motion_prompt,
-                            num_frames=frames,
-                            steps=video_steps,
-                            progress_bar=progress,
-                            status_box=status_box,
-                        )
-
-                    if error:
-
-                        st.error(
-                            "Image → Video üretilemedi."
-                        )
-
-                        st.code(error)
-
-                    elif video:
-
-                        st.session_state.generated_video = video
-
-                        st.session_state.video_filename = (
-                            "kogce_image_to_video.mp4"
-                        )
-
-                        st.video(video)
-
-                        st.download_button(
-                            "⬇️ MP4 İndir",
-                            data=video,
-                            file_name=(
-                                st.session_state.video_filename
-                            ),
-                            mime="video/mp4",
-                            use_container_width=True,
-                        )
-
-
-# ============================================================
-# AI TOOLS TAB
-# ============================================================
-
-with tabs[3]:
-
-    st.html(
-        """
-        <div class="kogce-card">
-
-            <div class="kogce-card-title">
-                AI Production Tools
-            </div>
-
-            <div class="kogce-card-subtitle">
-                Fikirden senaryoya, sahne planından video promptuna
-                kadar üretim sürecini AI ile hazırla.
-            </div>
-
-        </div>
-        """
-    )
-
-    tool = st.selectbox(
-        "AI Aracı",
-        [
-            "AI Prompt Robotu",
-            "AI Senaryo Yazarı",
-            "AI Sahne Planlayıcı",
-            "AI Video Prompt Üretici",
-            "AI Shorts Fikir Motoru",
-        ],
-    )
-
-    if tool == "AI Prompt Robotu":
-
-        st.subheader("AI Prompt Robotu")
-
-        idea = st.text_area(
-            "Fikrin",
-            height=150,
-            placeholder="Kısa fikrini yaz...",
-        )
-
-        if st.button(
-            "✦ Prompt Oluştur",
-            use_container_width=True,
-        ):
-
-            if not idea.strip():
-
-                st.warning(
-                    "Önce fikir gir."
+                seed = data.get(
+                    "seed"
                 )
 
-            else:
+                if seed is not None:
+                    payload["seed"] = int(seed)
 
-                with st.spinner(
-                    "Profesyonel prompt hazırlanıyor..."
-                ):
-
-                    result, error = call_ai(
-                        """
-You are an expert professional image-generation prompt engineer.
-
-Transform the user's idea into an extremely detailed but coherent
-English image-generation prompt.
-
-Include:
-subject, appearance, environment, composition, camera,
-lens, lighting, materials, textures, colors, atmosphere,
-depth, realism and visual quality.
-
-Preserve the user's intended meaning.
-Do not invent major story elements.
-Return only the final prompt.
-""",
-                        idea,
-                        temperature=0.75,
-                        max_tokens=1800,
+                response, error = (
+                    local_backend_request(
+                        "/generate-image",
+                        payload,
+                        timeout=30,
+                        form=True,
                     )
-
-                if error:
-
-                    st.error(error)
-
-                else:
-
-                    st.text_area(
-                        "Generated Prompt",
-                        value=result,
-                        height=330,
-                    )
-
-    elif tool == "AI Senaryo Yazarı":
-
-        st.subheader("AI Senaryo Yazarı")
-
-        topic = st.text_area(
-            "Video konusu",
-            height=150,
-        )
-
-        duration = st.selectbox(
-            "Hedef süre",
-            [
-                "30 saniye",
-                "60 saniye",
-                "90 saniye",
-                "3 dakika",
-            ],
-        )
-
-        if st.button(
-            "✦ Senaryo Yaz",
-            use_container_width=True,
-        ):
-
-            if not topic.strip():
-
-                st.warning(
-                    "Konu gir."
                 )
 
-            else:
-
-                with st.spinner(
-                    "Senaryo hazırlanıyor..."
-                ):
-
-                    result, error = call_ai(
-                        """
-You are a professional short-form video script writer.
-
-Create a complete engaging script.
-
-Structure:
-Hook
-Setup
-Development
-Retention moments
-Payoff
-Ending
-
-Use natural language and strong visual moments.
-""",
-                        f"""
-Topic:
-{topic}
-
-Target duration:
-{duration}
-""",
-                        temperature=0.8,
-                        max_tokens=2500,
-                    )
-
                 if error:
-
-                    st.error(error)
-
-                else:
-
-                    st.session_state.last_script = result
-
-                    st.text_area(
-                        "Senaryo",
-                        value=result,
-                        height=450,
+                    json_response(
+                        self,
+                        502,
+                        {"error": error},
                     )
+                    return
 
-    elif tool == "AI Sahne Planlayıcı":
+                result = response.json()
 
-        st.subheader("AI Sahne Planlayıcı")
+                if not result.get(
+                    "job_id"
+                ):
+                    json_response(
+                        self,
+                        502,
+                        {
+                            "error":
+                                "Tulpar job_id döndürmedi.",
+                            "data":
+                                result,
+                        },
+                    )
+                    return
 
-        script = st.text_area(
-            "Senaryoyu gir",
-            height=250,
-        )
-
-        if st.button(
-            "✦ Sahneleri Planla",
-            use_container_width=True,
-        ):
-
-            if not script.strip():
-
-                st.warning(
-                    "Önce senaryo gir."
+                json_response(
+                    self,
+                    200,
+                    {
+                        "job_id":
+                            result["job_id"],
+                        "final_prompt":
+                            final_prompt,
+                    },
                 )
 
-            else:
+                return
 
-                with st.spinner(
-                    "Sahne planı hazırlanıyor..."
-                ):
+            # ------------------------------------------------
+            # TEXT → VIDEO
+            # ------------------------------------------------
 
-                    result, error = call_ai(
-                        """
-You are a professional film director, storyboard artist
-and AI video production planner.
+            if path == "/api/generate-video":
 
-Break the script into logical visual scenes.
-
-For every scene provide:
-1. Scene number
-2. Duration
-3. Visual description
-4. Camera movement
-5. Character action
-6. Environment
-7. Lighting
-8. Audio/SFX
-9. AI generation notes
-
-Maintain character and visual consistency.
-""",
-                        script,
-                        temperature=0.75,
-                        max_tokens=3000,
-                    )
-
-                if error:
-
-                    st.error(error)
-
-                else:
-
-                    st.session_state.last_scenes = result
-
-                    st.text_area(
-                        "Sahne Planı",
-                        value=result,
-                        height=550,
-                    )
-
-    elif tool == "AI Video Prompt Üretici":
-
-        st.subheader(
-            "AI Video Prompt Üretici"
-        )
-
-        scene = st.text_area(
-            "Sahne fikri",
-            height=180,
-        )
-
-        if st.button(
-            "✦ Video Prompt Oluştur",
-            use_container_width=True,
-        ):
-
-            if not scene.strip():
-
-                st.warning(
-                    "Sahne fikri gir."
+                data = read_json_body(
+                    self
                 )
 
-            else:
-
-                with st.spinner(
-                    "Video prompt hazırlanıyor..."
-                ):
-
-                    result, error = call_ai(
-                        """
-You are an expert AI video-generation prompt engineer.
-
-Convert the scene into a production-ready English video prompt.
-
-Focus on:
-subject movement,
-camera movement,
-environment movement,
-lighting,
-realistic physics,
-cinematic composition,
-depth,
-timing,
-atmosphere,
-visual consistency.
-
-Return only the final video prompt.
-""",
-                        scene,
-                        temperature=0.75,
-                        max_tokens=1800,
+                response, error = (
+                    local_backend_request(
+                        "/generate-video",
+                        {
+                            "prompt":
+                                data.get(
+                                    "prompt",
+                                    "",
+                                ),
+                            "num_frames":
+                                int(data.get(
+                                    "num_frames",
+                                    33,
+                                )),
+                            "steps":
+                                int(data.get(
+                                    "steps",
+                                    20,
+                                )),
+                        },
+                        timeout=30,
                     )
-
-                if error:
-
-                    st.error(error)
-
-                else:
-
-                    st.session_state.last_video_prompt = result
-
-                    st.text_area(
-                        "Video Prompt",
-                        value=result,
-                        height=350,
-                    )
-
-    elif tool == "AI Shorts Fikir Motoru":
-
-        st.subheader(
-            "AI Shorts Fikir Motoru"
-        )
-
-        niche = st.text_input(
-            "Niş / konu",
-            placeholder=(
-                "Örneğin: AI, gaming, animals, satisfying..."
-            ),
-        )
-
-        count = st.slider(
-            "Fikir sayısı",
-            min_value=5,
-            max_value=20,
-            value=10,
-        )
-
-        if st.button(
-            "✦ Fikirleri Üret",
-            use_container_width=True,
-        ):
-
-            if not niche.strip():
-
-                st.warning(
-                    "Bir niş gir."
                 )
 
-            else:
-
-                with st.spinner(
-                    "Shorts fikirleri hazırlanıyor..."
-                ):
-
-                    result, error = call_ai(
-                        """
-You are a global short-form video strategist.
-
-Generate original YouTube Shorts concepts.
-
-Prioritize:
-strong first-second hooks,
-visual simplicity,
-high retention,
-curiosity,
-replayability,
-international appeal,
-easy AI/video production.
-
-For each idea provide:
-1. Title
-2. Hook
-3. Concept
-4. Retention mechanism
-5. Visual production idea
-
-Avoid generic repetition.
-""",
-                        f"""
-Niche:
-{niche}
-
-Number:
-{count}
-""",
-                        temperature=0.9,
-                        max_tokens=3500,
+                if error:
+                    json_response(
+                        self,
+                        502,
+                        {"error": error},
                     )
+                    return
+
+                result = response.json()
+
+                json_response(
+                    self,
+                    200,
+                    result,
+                )
+
+                return
+
+            # ------------------------------------------------
+            # IMAGE → VIDEO
+            # ------------------------------------------------
+
+            if path == "/api/generate-i2v":
+
+                fields, files = (
+                    parse_multipart(
+                        self
+                    )
+                )
+
+                if "image" not in files:
+                    raise ValueError(
+                        "Başlangıç görseli bulunamadı."
+                    )
+
+                filename, image_bytes, content_type = (
+                    files["image"]
+                )
+
+                response, error = (
+                    local_backend_request(
+                        "/image-to-video",
+                        {
+                            "prompt":
+                                fields.get(
+                                    "prompt",
+                                    "",
+                                ),
+                            "num_frames":
+                                fields.get(
+                                    "num_frames",
+                                    "33",
+                                ),
+                            "steps":
+                                fields.get(
+                                    "steps",
+                                    "20",
+                                ),
+                        },
+                        files={
+                            "image": (
+                                filename or "reference.png",
+                                image_bytes,
+                                content_type or "image/png",
+                            )
+                        },
+                        timeout=30,
+                    )
+                )
 
                 if error:
-
-                    st.error(error)
-
-                else:
-
-                    st.text_area(
-                        "Shorts Fikirleri",
-                        value=result,
-                        height=600,
+                    json_response(
+                        self,
+                        502,
+                        {"error": error},
                     )
+                    return
+
+                json_response(
+                    self,
+                    200,
+                    response.json(),
+                )
+
+                return
+
+            # ------------------------------------------------
+            # CHARACTER
+            # ------------------------------------------------
+
+            if path == "/api/generate-character":
+
+                fields, files = (
+                    parse_multipart(
+                        self
+                    )
+                )
+
+                if "image" not in files:
+                    raise ValueError(
+                        "Referans görsel bulunamadı."
+                    )
+
+                filename, image_bytes, content_type = (
+                    files["image"]
+                )
+
+                response, error = (
+                    local_backend_request(
+                        "/character-edit",
+                        {
+                            "instruction":
+                                fields.get(
+                                    "instruction",
+                                    "",
+                                ),
+                            "style":
+                                fields.get(
+                                    "style",
+                                    "Photorealistic",
+                                ),
+                            "strength":
+                                fields.get(
+                                    "strength",
+                                    "0.85",
+                                ),
+                            "preserve_face":
+                                fields.get(
+                                    "preserve_face",
+                                    "true",
+                                ),
+                            "preserve_body":
+                                fields.get(
+                                    "preserve_body",
+                                    "true",
+                                ),
+                            "preserve_clothes":
+                                fields.get(
+                                    "preserve_clothes",
+                                    "false",
+                                ),
+                        },
+                        files={
+                            "image": (
+                                filename or "character_reference.png",
+                                image_bytes,
+                                content_type or "image/png",
+                            )
+                        },
+                        timeout=30,
+                    )
+                )
+
+                if error:
+                    json_response(
+                        self,
+                        502,
+                        {"error": error},
+                    )
+                    return
+
+                json_response(
+                    self,
+                    200,
+                    response.json(),
+                )
+
+                return
+
+            json_response(
+                self,
+                404,
+                {
+                    "error":
+                        "Not found"
+                },
+            )
+
+        except Exception as exc:
+
+            json_response(
+                self,
+                400,
+                {
+                    "error":
+                        str(exc)
+                },
+            )
 
 
 # ============================================================
-# GALLERY
+# MAIN
 # ============================================================
 
-with tabs[4]:
+def main():
 
-    st.html(
-        """
-        <div class="kogce-card">
+    print()
+    print("=" * 70)
+    print("KOGCE AI STUDIO — LOCAL")
+    print("=" * 70)
+    print(
+        "UI      :",
+        f"http://{HOST}:{PORT}",
+    )
+    print(
+        "TULPAR  :",
+        LOCAL_BACKEND_URL,
+    )
+    print(
+        "IMAGE   : Qwen Image 2.1 / Tulpar / ComfyUI"
+    )
+    print(
+        "VIDEO   : Wan 2.1 T2V 1.3B / Tulpar / ComfyUI"
+    )
+    print(
+        "EXTERNAL AI INFERENCE : NONE"
+    )
+    print("=" * 70)
+    print()
 
-            <div class="kogce-card-title">
-                Galeri
-            </div>
-
-            <div class="kogce-card-subtitle">
-                Bu Streamlit oturumunda oluşturulan görseller.
-            </div>
-
-        </div>
-        """
+    server = ThreadingHTTPServer(
+        (HOST, PORT),
+        KOGCEHandler,
     )
 
-    if not st.session_state.gallery:
-
-        st.info(
-            "Henüz oluşturulmuş bir görsel yok."
+    def open_browser():
+        time.sleep(1)
+        webbrowser.open(
+            f"http://{HOST}:{PORT}"
         )
 
-    else:
+    threading.Thread(
+        target=open_browser,
+        daemon=True,
+    ).start()
 
-        for index, item in enumerate(
-            reversed(st.session_state.gallery)
-        ):
-
-            st.markdown(
-                f"### Üretim #{len(st.session_state.gallery) - index}"
-            )
-
-            st.image(
-                item["image"],
-                use_container_width=True,
-            )
-
-            st.caption(
-                "Orijinal Prompt"
-            )
-
-            st.write(
-                item["prompt"]
-            )
-
-            st.caption(
-                "Final Prompt"
-            )
-
-            st.code(
-                item["final_prompt"],
-                language="text",
-            )
-
-            st.divider()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nKOGCE kapatılıyor...")
+    finally:
+        server.server_close()
 
 
-# ============================================================
-# SYSTEM
-# ============================================================
-
-with tabs[5]:
-
-    st.html(
-        """
-        <div class="kogce-card">
-
-            <div class="kogce-card-title">
-                System
-            </div>
-
-            <div class="kogce-card-subtitle">
-                KOGCE üretim motorlarının bağlantı durumu.
-            </div>
-
-        </div>
-        """
-    )
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-
-        st.metric(
-            "HF API",
-            "ONLINE" if HF_API_KEY else "MISSING",
-        )
-
-    with col2:
-
-        st.metric(
-            "Image",
-            "QWEN 2.1",
-        )
-
-    with col3:
-
-        st.metric(
-            "Tulpar",
-            (
-                "ONLINE"
-                if local_backend_available()
-                else "OFFLINE"
-            ),
-        )
-
-    with col4:
-
-        st.metric(
-            "Gallery",
-            len(st.session_state.gallery),
-        )
-
-    st.divider()
-
-    st.subheader(
-        "Aktif Görsel Modeli"
-    )
-
-    st.code(
-        "Comfy-Org/Qwen-Image-2.1 • Tulpar / ComfyUI"
-    )
-
-    st.subheader(
-        "Prompt Modeli"
-    )
-
-    st.code(
-        PROMPT_MODEL
-    )
-
-    st.subheader(
-        "Tulpar Backend"
-    )
-
-    if LOCAL_BACKEND_URL:
-
-        st.code(
-            LOCAL_BACKEND_URL
-        )
-
-    else:
-
-        st.info(
-            "LOCAL_BACKEND_URL henüz tanımlanmadı."
-        )
-
-    st.divider()
-
-    st.subheader(
-        "Oturum"
-    )
-
-    st.write(
-        f"Galerideki görsel sayısı: "
-        f"**{len(st.session_state.gallery)}**"
-    )
-
-    if st.session_state.generated_video:
-
-        st.success(
-            "Son video üretimi mevcut."
-        )
-
-    else:
-
-        st.info(
-            "Bu oturumda başarılı video üretimi yok."
-        )
-
-    st.divider()
-
-    st.caption(
-        "KOGCE AI Studio • Private AI Creative Workspace"
-    )
+if __name__ == "__main__":
+    main()
